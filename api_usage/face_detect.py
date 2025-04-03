@@ -16,7 +16,7 @@ from core.model_loader.face_detection.FaceDetModelLoader import FaceDetModelLoad
 from core.model_handler.face_detection.FaceDetModelHandler import FaceDetModelHandler
 
 with open('config/model_conf.yaml') as f:
-    model_conf = yaml.safe_load(f)
+    model_conf = yaml.load(f, Loader=yaml.FullLoader)
 
 if __name__ == '__main__':
     # common setting for all model, need not modify.
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     # gen result
     save_path_img = 'api_usage/temp/test1_detect_res.jpg'
     save_path_txt = 'api_usage/temp/test1_detect_res.txt'
-
+    
     bboxs = dets
     with open(save_path_txt, "w") as fd:
         for box in bboxs:

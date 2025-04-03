@@ -130,7 +130,7 @@ def _draw_hwc(image: torch.Tensor, data: Dict[str, torch.Tensor]):
                          255, seg_labels,
                          label_names_dict=label_names) * 255).astype(dtype)
 
-    return torch.from_numpy(image).cpu()
+    return torch.from_numpy(image).cuda()
 
 
 def draw_bchw(images, data):

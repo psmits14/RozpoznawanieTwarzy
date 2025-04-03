@@ -30,7 +30,7 @@ class FaceAlignModelHandler(BaseModelHandler):
         """
         super().__init__(model, device, cfg)
         self.img_size = self.cfg['img_size']
-
+        
     def inference_on_image(self, image, dets):
         """Get the inference of the image and process the inference result.
 
