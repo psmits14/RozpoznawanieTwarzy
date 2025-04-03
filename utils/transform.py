@@ -79,9 +79,9 @@ def get_face_align_matrix(
 
 
 @functools.lru_cache(maxsize=128)
-def _meshgrid(h, w) -> Tuple[torch.Tensor, torch.Tensor]:
+def _meshgrid(h, w, indexing='ij') -> Tuple[torch.Tensor, torch.Tensor]:
     yy, xx = torch.meshgrid(torch.arange(h).float(),
-                            torch.arange(w).float())
+                            torch.arange(w).float(), indexing='ij')
     return yy, xx
 
 
@@ -103,7 +103,7 @@ def _forge_grid(batch_size: int, device: torch.device,
             `(X[y, x], Y[y, x]) = fn([x, y])`
     """
     h, w, *_ = output_shape
-    yy, xx = _meshgrid(h, w)  # h x w
+    yy, xx = _meshgrid(h, w, indexing='ij')  # h x w
     yy = yy.unsqueeze(0).broadcast_to(batch_size, h, w).to(device)
     xx = xx.unsqueeze(0).broadcast_to(batch_size, h, w).to(device)
 

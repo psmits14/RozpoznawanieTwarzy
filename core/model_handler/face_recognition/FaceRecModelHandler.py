@@ -30,25 +30,25 @@ class FaceRecModelHandler(BaseModelHandler):
         self.std = self.cfg['std']
         self.input_height = self.cfg['input_height']
         self.input_width = self.cfg['input_width']
-        
+
     def inference_on_image(self, image):
         """Get the inference of the image.
-        
+
         Returns:
-            A numpy array, the output feature, shape (512,), 
+            A numpy array, the output feature, shape (512,),
         """
         try:
             image = self._preprocess(image)
         except Exception as e:
             raise e
-        
+
         image = torch.unsqueeze(image, 0)
         image = image.to(self.device)
-        
+
         with torch.no_grad():
             feature = self.model(image).cpu().numpy()
         feature = np.squeeze(feature)
-        
+
         return feature
 
     def _preprocess(self, image):
