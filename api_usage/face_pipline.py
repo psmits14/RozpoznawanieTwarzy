@@ -68,7 +68,7 @@ if __name__ == '__main__':
     try:
         faceRecModelLoader = FaceRecModelLoader(model_path, model_category, model_name)
         model, cfg = faceRecModelLoader.load_model()
-        model = model.module.cpu()
+        model = model.to('cpu')
         faceRecModelHandler = FaceRecModelHandler(model, 'cpu', cfg)
     except Exception as e:
         logger.error('Failed to load face recognition model.')
