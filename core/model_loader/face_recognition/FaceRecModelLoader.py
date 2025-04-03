@@ -18,14 +18,25 @@ class FaceRecModelLoader(BaseModelLoader):
         super().__init__(model_path, model_category, model_name, meta_file)
         self.cfg['mean'] = self.meta_conf['mean']
         self.cfg['std'] = self.meta_conf['std']
-        
+
     def load_model(self):
         try:
-            model = torch.load(self.cfg['model_file_path'], map_location=torch.device('cpu'), weights_only=False)
+            model = torch.load(
+                self.cfg['model_file_path'],
+                map_location=torch.device('cpu'),
+                weights_only=False
+            )
+
+            # ✅ Unwrap from DataParallel if needed (causes CUDA issues)
+            if isinstance(model, torch.nn.DataParallel):
+                logger.info('Model was wrapped in DataParallel. Unwrapping it for CPU usage.')
+                model = model.module
+
         except Exception as e:
-            logger.error('The model failed to load, please check the model path: %s!'
-                         % self.cfg['model_file_path'])
+            logger.error('The model failed to load, please check the model path: %s!' %
+                         self.cfg['model_file_path'])
             raise e
         else:
             logger.info('Successfully loaded the face recognition model!')
             return model, self.cfg
+
