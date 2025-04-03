@@ -1,0 +1,8 @@
+torch>=1.1.0
+torchvision>=0.3.0
+pyyaml~=6.0.2
+scikit-image~=0.25.2
+Pillow~=11.1.0
+matplotlib~=3.10.1
+opencv-python~=4.11.0.86
+numpy~=2.2.4
