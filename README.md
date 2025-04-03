@@ -9,6 +9,10 @@ A simple yet fully functional face SDK written in python, which acts as a demo t
 * itertools  
 * skimage  
 
+```
+pip install -r requirements.txt
+```
+
 # Results by the SDK
 ## Non-masked faces  
   ![image1](../data/images/sample_non_mask.jpg)
@@ -19,7 +23,7 @@ A simple yet fully functional face SDK written in python, which acts as a demo t
 
 # Getting Started
 ## Run the examples
-```python
+```
 python api_usage/face_detect.py  # Get bounding box of a face 
 python api_usage/face_alignment.py  # Get 106 landmark of a face 
 python api_usage/face_crop.py  # Get croped face from a image
