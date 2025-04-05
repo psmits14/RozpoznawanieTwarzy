@@ -1,11 +1,15 @@
-# python camera_app.py
+# camera_app.py
 
 import logging.config
-from camera_processing.FaceCameraApp import FaceCameraApp
+import sys
 import warnings
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QTimer
+
+from camera_processing.FaceCameraApp import FaceCameraApp
+from camera_processing.CameraUI import CameraUI  # <-- nowy GUI!
 
 from torch.serialization import SourceChangeWarning
-
 warnings.filterwarnings("ignore", category=SourceChangeWarning)
 
 def configure_logging():
@@ -14,9 +18,15 @@ def configure_logging():
 
 if __name__ == "__main__":
     logger = configure_logging()
-    try:
-        app = FaceCameraApp(logger)
-        app.run()
-    except Exception as e:
-        logger.error(f"Aplikacja zakończyła się błędem: {str(e)}")
-        raise
+
+    app = QApplication(sys.argv)
+
+    gui = CameraUI()
+    logic = FaceCameraApp(logger, gui)
+
+    timer = QTimer()
+    timer.timeout.connect(logic.update)
+    timer.start(60)  # 30ms ~ 33 FPS
+
+    gui.show()
+    sys.exit(app.exec())

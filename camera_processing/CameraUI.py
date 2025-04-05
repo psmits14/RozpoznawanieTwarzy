@@ -1,158 +1,160 @@
+from PyQt6.QtWidgets import (
+    QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton,
+    QListWidget, QListWidgetItem, QLineEdit
+)
+from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtCore import Qt
 import cv2
 import numpy as np
-from typing import List, Dict, Optional
 
 
-class CameraUI:
-    def __init__(self, window_name="Aplikacja Kamery - Detekcja i Rozpoznawanie Twarzy"):
-        self.window_name = window_name
-        self.panel_width = 450  # Zwiększona szerokość dla dodatkowych informacji
-        self.max_faces_display = 5
-        cv2.namedWindow(self.window_name, cv2.WINDOW_GUI_NORMAL)
+class CameraUI(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Aplikacja Kamery - Detekcja i Rozpoznawanie Twarzy")
+        self.setMinimumSize(1200, 600)
 
-        # Kolory interfejsu
-        self.COLOR_BG = (240, 240, 240)  # Szare tło
-        self.COLOR_TEXT = (0, 0, 0)  # Czarny tekst
-        self.COLOR_MATCH = (0, 180, 0)  # Zielony dla dopasowań
-        self.COLOR_UNKNOWN = (0, 0, 255)  # Czerwony dla nieznanych
-        self.COLOR_HIGHLIGHT = (255, 165, 0)  # Pomarańczowy dla zaznaczenia
+        # Stan aplikacji
+        self.current_frame = None
+        self.pending_face_crop = None
+        self.on_add_face_callback = None
+        self.on_prepare_face_crop_callback = None
 
-        # Stan interfejsu
-        self.selected_face_idx = -1  # Aktualnie wybrana twarz
-        self.add_face_mode = False  # Tryb dodawania nowej twarzy
+        self._setup_ui()
 
-    def create_right_panel(self, width: int, height: int,
-                           detected_faces: List[np.ndarray],
-                           recognitions: List[Dict]) -> np.ndarray:
-        """
-        Tworzy panel boczny z wykrytymi twarzami i opcjami dodawania
+    def _setup_ui(self):
+        # Obraz z kamery (rozmiar zostanie ustawiony dynamicznie)
+        self.video_label = QLabel("Obraz z kamery")
+        self.video_label.setStyleSheet("background-color: black;")
+        self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        Args:
-            width: Szerokość panelu
-            height: Wysokość panelu
-            detected_faces: Lista wykrytych twarzy (obrazy numpy)
-            recognitions: Lista słowników z informacjami o rozpoznaniu
-        """
-        panel = np.zeros((height, width, 3), dtype=np.uint8)
-        panel[:] = self.COLOR_BG
+        # Lista twarzy
+        self.face_list = QListWidget()
+        self.face_list.setFixedWidth(400)
 
-        # Nagłówek panelu
-        cv2.putText(panel, "Wykryte twarze (n-dodaj, 1-5-wybierz):", (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, self.COLOR_TEXT, 2)
+        # Pole do wpisania imienia
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("Wpisz imię i naciśnij ENTER")
+        self.name_input.returnPressed.connect(self._submit_face_name)
+        self.name_input.hide()
 
-        # Wyświetlanie twarzy w panelu
-        y_offset = 60
-        face_width = int(width * 0.8)
-        face_height = (height - 200) // self.max_faces_display  # Zwiększona przestrzeń
+        # Przycisk dodania nowej twarzy
+        self.add_button = QPushButton("Dodaj nową twarz")
+        self.add_button.clicked.connect(self._on_add_clicked)
 
-        for i, (face, rec_info) in enumerate(zip(detected_faces[:self.max_faces_display], recognitions)):
-            try:
-                if face.size == 0:
-                    continue
+        # Podgląd twarzy
+        self.face_preview = QLabel("Podgląd twarzy")
+        self.face_preview.setFixedSize(120, 120)
+        self.face_preview.setStyleSheet("border: 1px solid gray; background: #eee;")
+        self.face_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.face_preview.setVisible(False)
 
-                # Przygotowanie informacji o rozpoznaniu
-                name = rec_info.get('name', 'Unknown')
-                score = rec_info.get('score', 0)
-                color = self.COLOR_MATCH if name != 'Unknown' else self.COLOR_UNKNOWN
-                score_text = f"{score * 100:.1f}%" if score > 0 else "N/A"
+        # Przyciski zatwierdź/anuluj
+        self.confirm_button = QPushButton("Zatwierdź dodanie")
+        self.confirm_button.clicked.connect(self._confirm_add_face)
+        self.confirm_button.setVisible(False)
 
-                # Skalowanie twarzy
-                h, w = face.shape[:2]
-                scale = min(face_width / w, face_height / h)
-                face = cv2.resize(face, None, fx=scale, fy=scale)
-                face_h, face_w = face.shape[:2]
+        self.cancel_button = QPushButton("Anuluj")
+        self.cancel_button.clicked.connect(self._cancel_add_face)
+        self.cancel_button.setVisible(False)
 
-                # Zaznaczenie wybranej twarzy
-                border_color = self.COLOR_HIGHLIGHT if i == self.selected_face_idx else color
-                border_thickness = 3 if i == self.selected_face_idx else 2
+        button_row = QHBoxLayout()
+        button_row.addWidget(self.cancel_button)
+        button_row.addWidget(self.confirm_button)
 
-                # Obramowanie i twarz
-                cv2.rectangle(panel, (10, y_offset - 5),
-                              (10 + face_w + 10, y_offset + face_h + 5),
-                              border_color, border_thickness)
-                panel[y_offset:y_offset + face_h, 15:15 + face_w] = face
+        preview_layout = QVBoxLayout()
+        preview_layout.addWidget(self.face_preview, alignment=Qt.AlignmentFlag.AlignCenter)
+        preview_layout.addLayout(button_row)
 
-                # Informacje o rozpoznaniu
-                text_y = y_offset + face_h + 25
-                cv2.putText(panel, f"{i + 1}. {name}", (15, text_y),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
-                cv2.putText(panel, f"Podobieństwo: {score_text}", (15, text_y + 25),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+        # Panel boczny
+        right_layout = QVBoxLayout()
+        right_layout.addWidget(QLabel("Rozpoznane twarze:"))
+        right_layout.addWidget(self.face_list)
+        right_layout.addWidget(self.name_input)
+        right_layout.addWidget(self.add_button)
+        right_layout.addLayout(preview_layout)
 
-                y_offset += face_h + 70
+        # Główny układ
+        main_layout = QHBoxLayout()
+        main_layout.addWidget(self.video_label)
+        main_layout.addLayout(right_layout)
+        self.setLayout(main_layout)
 
-            except Exception as e:
-                print(f"Błąd wyświetlania twarzy {i}: {str(e)}")
-                continue
+    def set_video_resolution(self, width: int, height: int):
+        """Dopasowuje QLabel do rozmiaru klatki z kamery"""
+        self.video_label.setFixedSize(width, height)
 
-        # Instrukcja dodawania nowej twarzy
-        if self.add_face_mode and self.selected_face_idx >= 0:
-            cv2.putText(panel, "Wprowadź imię i naciśnij ENTER:",
-                        (15, height - 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                        self.COLOR_HIGHLIGHT, 1)
-            cv2.putText(panel, "(ESC aby anulować)",
-                        (15, height - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                        (100, 100, 100), 1)
+    def update_frame(self, frame: np.ndarray,
+                     detected_faces: list[np.ndarray],
+                     recognitions: list[dict]):
+        """Aktualizuje obraz z kamery i listę rozpoznanych twarzy"""
+        self.current_frame = frame.copy()
+        self._update_video_display(frame)
+        self._update_face_list(detected_faces, recognitions)
 
-        return panel
+    def _update_video_display(self, frame: np.ndarray):
+        """Wyświetla obraz z kamery bez skalowania"""
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb.shape
+        bytes_per_line = ch * w
+        qt_image = QImage(rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+        pixmap = QPixmap.fromImage(qt_image)
+        self.video_label.setPixmap(pixmap)
 
-    def display_frame(self, frame: np.ndarray,
-                      detected_faces: List[np.ndarray] = [],
-                      recognitions: Optional[List[Dict]] = None):
-        """Wyświetla klatkę z panelem bocznym"""
-        recognitions = recognitions or [{} for _ in detected_faces]
-        right_panel = self.create_right_panel(self.panel_width, frame.shape[0],
-                                              detected_faces, recognitions)
-        combined = np.hstack((frame, right_panel))
-        cv2.imshow(self.window_name, combined)
+    def _update_face_list(self, faces, recognitions):
+        """Aktualizuje listę twarzy po prawej stronie"""
+        self.face_list.clear()
+        for i, (face, rec) in enumerate(zip(faces, recognitions)):
+            name = rec.get("name", "Nieznany")
+            score = rec.get("score", 0)
+            label = f"{i + 1}. {name} - {score * 100:.1f}%"
+            self.face_list.addItem(QListWidgetItem(label))
 
-    def handle_key_events(self) -> Optional[Dict]:
-        """
-        Obsługuje zdarzenia klawiatury i zwraca akcje do wykonania
+    def _on_add_clicked(self):
+        """Obsługa kliknięcia przycisku 'Dodaj nową twarz'"""
+        self.name_input.show()
+        self.name_input.setFocus()
 
-        Returns:
-            Dict: {'action': 'add_face', 'face_idx': int, 'name': str}
-                  lub None jeśli brak akcji
-        """
-        key = cv2.waitKey(1) & 0xFF
+    def _submit_face_name(self):
+        name = self.name_input.text().strip()
+        if name and self.current_frame is not None:
+            if self.on_prepare_face_crop_callback:
+                crop = self.on_prepare_face_crop_callback(self.current_frame)
+                if crop is not None:
+                    self.pending_face_crop = (crop, name)
+                    self._show_face_preview(crop)
+        self.name_input.clear()
+        self.name_input.hide()
 
-        # Wybór twarzy klawiszami 1-5
-        if ord('1') <= key <= ord(str(min(5, self.max_faces_display))):
-            self.selected_face_idx = key - ord('1')
-            self.add_face_mode = False
-            return None
+    def _show_face_preview(self, crop: np.ndarray):
+        """Wyświetla miniaturkę wyciętej twarzy przed zatwierdzeniem"""
+        max_size = 120
+        h, w = crop.shape[:2]
+        scale = min(max_size / w, max_size / h)
+        new_w, new_h = int(w * scale), int(h * scale)
+        resized = cv2.resize(crop, (new_w, new_h))
 
-        # Wejście w tryb dodawania twarzy
-        if key == ord('n') and self.selected_face_idx >= 0:
-            self.add_face_mode = True
-            return None
+        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+        qt_image = QImage(rgb.data, new_w, new_h, 3 * new_w, QImage.Format.Format_RGB888)
+        pixmap = QPixmap.fromImage(qt_image)
 
-        # Anulowanie trybu dodawania
-        if key == 27:  # ESC
-            self.add_face_mode = False
-            return None
+        self.face_preview.setPixmap(pixmap)
+        self.face_preview.setVisible(True)
+        self.confirm_button.setVisible(True)
+        self.cancel_button.setVisible(True)
 
-        # Potwierdzenie dodania twarzy
-        if self.add_face_mode and key == 13:  # ENTER
-            # Otwórz okno dialogowe do wprowadzenia imienia
-            name = self._get_face_name_from_input()
-            if name:
-                action = {
-                    'action': 'add_face',
-                    'face_idx': self.selected_face_idx,
-                    'name': name
-                }
-                self.add_face_mode = False
-                return action
+    def _confirm_add_face(self):
+        if self.pending_face_crop and self.on_add_face_callback:
+            crop, name = self.pending_face_crop
+            self.on_add_face_callback(crop, name)
+        self._reset_face_preview()
 
-        return None
+    def _cancel_add_face(self):
+        self._reset_face_preview()
 
-    def _get_face_name_from_input(self) -> Optional[str]:
-        """Wyświetla okno dialogowe do wprowadzenia imienia"""
-        name = input("Wprowadź imię osoby do dodania (bez polskich znaków i spacji): ")
-        return name.strip() if name else None
-
-    def should_close(self) -> bool:
-        """Sprawdza czy aplikacja powinna się zamknąć"""
-        return (cv2.waitKey(1) == ord('q') or
-                cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) < 1)
+    def _reset_face_preview(self):
+        self.face_preview.clear()
+        self.face_preview.setVisible(False)
+        self.confirm_button.setVisible(False)
+        self.cancel_button.setVisible(False)
+        self.pending_face_crop = None
