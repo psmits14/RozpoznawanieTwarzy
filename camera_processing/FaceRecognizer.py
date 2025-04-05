@@ -13,7 +13,7 @@ from core.model_handler.face_detection.FaceDetModelHandler import FaceDetModelHa
 
 
 class FaceRecognizer:
-    def __init__(self, logger: logging.Logger, model_path: str = 'models', known_faces_dir: str = 'my_faces'):
+    def __init__(self, logger: logging.Logger, model_path: str = 'models', known_faces_dir: str = 'my_faces',  face_detector_handler=None):
         """
         Initialize face recognition system.
 
@@ -26,11 +26,13 @@ class FaceRecognizer:
         self.model_path = model_path
         self.known_faces_dir = known_faces_dir
         self.known_faces: Dict[str, List[np.ndarray]] = {}
-        self.face_cropper = FaceRecImageCropper()
+        self.face_cropper = None
         self.recognition_handler = None
-        self.face_detector = None  # Will be initialized separately
+        self.face_detector_handler = face_detector_handler
 
         self._initialize_models()
+        if self.face_detector_handler:
+            self.face_cropper = FaceRecImageCropper()
         self._load_known_faces()
 
     def _initialize_models(self) -> None:
@@ -54,9 +56,10 @@ class FaceRecognizer:
             self.logger.error(f'Failed to initialize face recognition model: {str(e)}')
             raise
 
-    def initialize_face_detector(self, face_detector: FaceDetModelHandler) -> None:
-        """Initialize face detector (must be called after FaceDetector is created)"""
-        self.face_detector = face_detector
+    def initialize_face_detector(self, face_detector_handler):
+        """Poprawiona inicjalizacja detektora"""
+        self.face_detector_handler = face_detector_handler
+        self.face_cropper = FaceRecImageCropper()  # Przekazanie detektora
 
     def _load_known_faces(self) -> None:
         """Load known faces from directory structure"""
@@ -94,45 +97,40 @@ class FaceRecognizer:
             self.logger.error(f"Error generating embedding from {image_path}: {str(e)}")
             return None
 
-    def _get_face_landmarks(self, image: np.ndarray) -> Optional[np.ndarray]:
-        """Get face landmarks using face detector"""
-        if self.face_detector is None:
-            raise RuntimeError("Face detector not initialized")
-
-        try:
-            detections = self.face_detector.inference_on_image(image)
-            if not detections:
-                return None
-
-            # Assuming the first 5 landmarks are: left eye, right eye, nose, left mouth corner, right mouth corner
-            landmarks = np.array([
-                [detections[0][5], detections[0][6]],  # Left eye
-                [detections[0][7], detections[0][8]],  # Right eye
-                [detections[0][9], detections[0][10]],  # Nose
-                [detections[0][11], detections[0][12]],  # Left mouth corner
-                [detections[0][13], detections[0][14]]  # Right mouth corner
-            ])
-            return landmarks
-        except Exception as e:
-            self.logger.error(f"Error detecting face landmarks: {str(e)}")
-            return None
-
     def generate_embedding(self, face_image: np.ndarray) -> Optional[np.ndarray]:
         """Generate embedding from face image (numpy array)"""
         if self.recognition_handler is None:
             raise RuntimeError("Face recognition model not initialized")
-        if self.face_detector is None:
+        if self.face_detector_handler is None:
             raise RuntimeError("Face detector not initialized")
 
         try:
-            # Get face landmarks
-            landmarks = self._get_face_landmarks(face_image)
-            if landmarks is None:
-                self.logger.warning("No face landmarks detected")
+            # Detect and align face
+            detections = self.face_detector_handler.inference_on_image(face_image)
+            if not detections.any():
+                self.logger.warning("No face detected in image")
                 return None
 
-            # Crop and align face using landmarks
-            cropped_face = self.face_cropper.crop_image_by_mat(face_image, landmarks.flatten())
+            # Weź pierwszą wykrytą twarz (możesz zmodyfikować, aby obsłużyć wiele twarzy)
+            #face_det = detections[0]
+
+            # Zakładając, że detections zawiera landmarks (punkty charakterystyczne)
+            # Format może się różnić w zależności od modelu detekcji
+            #landmarks = face_det[5:15]  # Przykład - może być inaczej w Twoim modelu
+            #landmarks = np.array(landmarks).reshape(5, 2)  # Konwersja do formatu 5 punktów
+
+            # Teraz przycinamy obraz używając landmarks
+            #cropped_face = self.face_cropper.crop_image_by_mat(face_image, landmarks)
+
+            # Weź pierwszą wykrytą twarz
+            detection = detections[0]
+            x1, y1, x2, y2, confidence = detection
+
+            # Przygotuj bounding box
+            bbox = [x1, y1, x2, y2]
+
+            # Przycinanie twarzy na podstawie bounding boxa
+            cropped_face = self._crop_face_by_bbox(face_image, bbox)
 
             # Generate embedding
             embedding = self.recognition_handler.inference_on_image(cropped_face)
@@ -140,6 +138,24 @@ class FaceRecognizer:
         except Exception as e:
             self.logger.error(f"Error generating face embedding: {str(e)}")
             return None
+
+    def _crop_face_by_bbox(self, image: np.ndarray, bbox: list) -> np.ndarray:
+        """Crop face using bounding box coordinates"""
+        x1, y1, x2, y2 = map(int, bbox)
+        h, w = image.shape[:2]
+
+        # Zabezpieczenie przed wyjściem poza zakres
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w - 1, x2), min(h - 1, y2)
+
+        if x2 <= x1 or y2 <= y1:
+            raise ValueError("Invalid bounding box coordinates")
+
+        cropped = image[y1:y2, x1:x2]
+
+        # Resize do standardowego rozmiaru jeśli potrzebny
+        cropped = cv2.resize(cropped, (112, 112))  # standardowy rozmiar dla wielu modeli
+        return cropped
 
     def recognize_face(self, face_image: np.ndarray, threshold: float = 0.6) -> Tuple[str, float]:
         """
