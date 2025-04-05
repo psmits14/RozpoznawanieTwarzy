@@ -1,3 +1,5 @@
+# python camera_app.py
+
 import logging.config
 from camera_processing.FaceCameraApp import FaceCameraApp
 

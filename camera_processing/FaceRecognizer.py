@@ -13,7 +13,7 @@ from core.model_handler.face_detection.FaceDetModelHandler import FaceDetModelHa
 
 
 class FaceRecognizer:
-    def __init__(self, logger: logging.Logger, model_path: str = 'models', known_faces_dir: str = 'api_usage/my_faces'):
+    def __init__(self, logger: logging.Logger, model_path: str = 'models', known_faces_dir: str = 'my_faces'):
         """
         Initialize face recognition system.
 
