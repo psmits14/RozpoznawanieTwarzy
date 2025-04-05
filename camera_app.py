@@ -2,6 +2,11 @@
 
 import logging.config
 from camera_processing.FaceCameraApp import FaceCameraApp
+import warnings
+
+from torch.serialization import SourceChangeWarning
+
+warnings.filterwarnings("ignore", category=SourceChangeWarning)
 
 def configure_logging():
     logging.config.fileConfig("config/logging.conf")
