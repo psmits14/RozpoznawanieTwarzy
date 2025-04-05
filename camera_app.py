@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     timer = QTimer()
     timer.timeout.connect(logic.update)
-    timer.start(60)  # 30ms ~ 33 FPS
+    timer.start(30)  # 30ms ~ 33 FPS
 
     gui.show()
     sys.exit(app.exec())

@@ -1,20 +1,20 @@
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton,
-    QListWidget, QListWidgetItem, QLineEdit
+    QLineEdit, QScrollArea
 )
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import Qt
 import cv2
 import numpy as np
+import os
 
 
 class CameraUI(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Aplikacja Kamery - Detekcja i Rozpoznawanie Twarzy")
-        self.setMinimumSize(1200, 600)
+        self.setMinimumSize(1000, 600)
 
-        # Stan aplikacji
         self.current_frame = None
         self.pending_face_crop = None
         self.on_add_face_callback = None
@@ -23,33 +23,36 @@ class CameraUI(QWidget):
         self._setup_ui()
 
     def _setup_ui(self):
-        # Obraz z kamery (rozmiar zostanie ustawiony dynamicznie)
+        # Obraz z kamery
         self.video_label = QLabel("Obraz z kamery")
         self.video_label.setStyleSheet("background-color: black;")
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Lista twarzy
-        self.face_list = QListWidget()
-        self.face_list.setFixedWidth(400)
+        # Scrollowana lista rozpoznań
+        self.recognition_panel = QVBoxLayout()
+        self.recognition_panel.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Pole do wpisania imienia
+        scroll_widget = QWidget()
+        scroll_widget.setLayout(self.recognition_panel)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(scroll_widget)
+
+        # Pole imienia i przycisk dodania
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("Wpisz imię i naciśnij ENTER")
         self.name_input.returnPressed.connect(self._submit_face_name)
         self.name_input.hide()
 
-        # Przycisk dodania nowej twarzy
         self.add_button = QPushButton("Dodaj nową twarz")
         self.add_button.clicked.connect(self._on_add_clicked)
 
-        # Podgląd twarzy
-        self.face_preview = QLabel("Podgląd twarzy")
+        # Podgląd + akcje
+        self.face_preview = QLabel()
         self.face_preview.setFixedSize(120, 120)
-        self.face_preview.setStyleSheet("border: 1px solid gray; background: #eee;")
-        self.face_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.face_preview.setVisible(False)
 
-        # Przyciski zatwierdź/anuluj
         self.confirm_button = QPushButton("Zatwierdź dodanie")
         self.confirm_button.clicked.connect(self._confirm_add_face)
         self.confirm_button.setVisible(False)
@@ -58,60 +61,114 @@ class CameraUI(QWidget):
         self.cancel_button.clicked.connect(self._cancel_add_face)
         self.cancel_button.setVisible(False)
 
+        preview_layout = QVBoxLayout()
+        preview_layout.addWidget(self.face_preview, alignment=Qt.AlignmentFlag.AlignCenter)
         button_row = QHBoxLayout()
         button_row.addWidget(self.cancel_button)
         button_row.addWidget(self.confirm_button)
-
-        preview_layout = QVBoxLayout()
-        preview_layout.addWidget(self.face_preview, alignment=Qt.AlignmentFlag.AlignCenter)
         preview_layout.addLayout(button_row)
 
-        # Panel boczny
+        # Prawy panel
         right_layout = QVBoxLayout()
         right_layout.addWidget(QLabel("Rozpoznane twarze:"))
-        right_layout.addWidget(self.face_list)
+        right_layout.addWidget(scroll_area)
         right_layout.addWidget(self.name_input)
         right_layout.addWidget(self.add_button)
         right_layout.addLayout(preview_layout)
 
-        # Główny układ
+        # Układ główny
         main_layout = QHBoxLayout()
-        main_layout.addWidget(self.video_label)
-        main_layout.addLayout(right_layout)
+        main_layout.addWidget(self.video_label, stretch=2)
+        main_layout.addLayout(right_layout, stretch=1)
         self.setLayout(main_layout)
 
     def set_video_resolution(self, width: int, height: int):
-        """Dopasowuje QLabel do rozmiaru klatki z kamery"""
         self.video_label.setFixedSize(width, height)
 
     def update_frame(self, frame: np.ndarray,
                      detected_faces: list[np.ndarray],
                      recognitions: list[dict]):
-        """Aktualizuje obraz z kamery i listę rozpoznanych twarzy"""
         self.current_frame = frame.copy()
         self._update_video_display(frame)
-        self._update_face_list(detected_faces, recognitions)
+        self._update_face_comparisons(detected_faces, recognitions)
 
     def _update_video_display(self, frame: np.ndarray):
-        """Wyświetla obraz z kamery bez skalowania"""
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
-        bytes_per_line = ch * w
-        qt_image = QImage(rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+        qt_image = QImage(rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(qt_image)
         self.video_label.setPixmap(pixmap)
 
-    def _update_face_list(self, faces, recognitions):
-        """Aktualizuje listę twarzy po prawej stronie"""
-        self.face_list.clear()
-        for i, (face, rec) in enumerate(zip(faces, recognitions)):
-            name = rec.get("name", "Nieznany")
-            score = rec.get("score", 0)
-            label = f"{i + 1}. {name} - {score * 100:.1f}%"
-            self.face_list.addItem(QListWidgetItem(label))
+    def _update_face_comparisons(self, faces, recognitions):
+        while self.recognition_panel.count():
+            item = self.recognition_panel.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        for i, (cam_face, rec) in enumerate(zip(faces, recognitions)):
+            label = f"{i + 1}. {rec.get('name', 'Nieznany')} - {rec.get('score', 0) * 100:.1f}%"
+            ref_path = rec.get("reference")
+            ref_face = cv2.imread(ref_path) if ref_path and os.path.exists(ref_path) else None
+            widget = self._create_face_comparison_widget(cam_face, ref_face, label)
+            self.recognition_panel.addWidget(widget)
+
+    def _create_face_comparison_widget(self, cam_face: np.ndarray, ref_face: np.ndarray, label: str) -> QWidget:
+        def to_pixmap(img, size=60):
+            if img is None:
+                blank = np.full((size, size, 3), 180, dtype=np.uint8)
+                return QPixmap.fromImage(QImage(blank.data, size, size, size * 3, QImage.Format.Format_RGB888))
+
+            h, w = img.shape[:2]
+            scale = min(size / w, size / h)
+            new_w, new_h = int(w * scale), int(h * scale)
+            resized = cv2.resize(img, (new_w, new_h))
+            rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+            return QPixmap.fromImage(QImage(rgb.data, new_w, new_h, 3 * new_w, QImage.Format.Format_RGB888))
+
+        # Obrazki
+        cam_pix = to_pixmap(cam_face)
+        ref_pix = to_pixmap(ref_face)
+
+        # Kamera
+        cam_image = QLabel()
+        cam_image.setPixmap(cam_pix)
+        cam_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        cam_label = QLabel("Kamera")
+        cam_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        cam_col = QVBoxLayout()
+        cam_col.addWidget(cam_image)
+        cam_col.addWidget(cam_label)
+
+        # Wzorzec
+        ref_image = QLabel()
+        ref_image.setPixmap(ref_pix)
+        ref_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        ref_label = QLabel("Wzorzec")
+        ref_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        ref_col = QVBoxLayout()
+        ref_col.addWidget(ref_image)
+        ref_col.addWidget(ref_label)
+
+        # Tekst
+        text_label = QLabel(label)
+        text_label.setStyleSheet("font-weight: bold; margin-left: 10px;")
+        text_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        # Główne ułożenie
+        layout = QHBoxLayout()
+        layout.addLayout(cam_col)
+        layout.addLayout(ref_col)
+        layout.addWidget(text_label)
+
+        container = QWidget()
+        container.setLayout(layout)
+        return container
 
     def _on_add_clicked(self):
-        """Obsługa kliknięcia przycisku 'Dodaj nową twarz'"""
         self.name_input.show()
         self.name_input.setFocus()
 
@@ -127,7 +184,6 @@ class CameraUI(QWidget):
         self.name_input.hide()
 
     def _show_face_preview(self, crop: np.ndarray):
-        """Wyświetla miniaturkę wyciętej twarzy przed zatwierdzeniem"""
         max_size = 120
         h, w = crop.shape[:2]
         scale = min(max_size / w, max_size / h)

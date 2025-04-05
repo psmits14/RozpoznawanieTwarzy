@@ -95,8 +95,12 @@ class FaceCameraApp:
 
                 # Wymuszone rozpoznanie
                 if needs_recognition or current_time - self.last_recognition_time > self.recognition_interval:
-                    name, score = self.recognizer.recognize_face(face_img)
-                    recognition = {'name': name, 'score': score}
+                    name, score, reference_path = self.recognizer.recognize_face(face_img)
+                    recognition = {
+                        'name': name,
+                        'score': score,
+                        'reference': reference_path  # <-- to dodajesz
+                    }
                     self.last_recognition_time = current_time
 
                 # === RYSOWANIE OBRAZKÓW I NAZW ===

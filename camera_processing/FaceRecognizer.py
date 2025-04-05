@@ -147,43 +147,63 @@ class FaceRecognizer:
             self.logger.error(f"Error generating face embedding: {str(e)}")
             return None
 
-    def recognize_face(self, face_image: np.ndarray, threshold: float = 0.6) -> Tuple[str, float]:
+    def recognize_face(self, face_image: np.ndarray, threshold: float = 0.6) -> Tuple[str, float, Optional[str]]:
         """
-        Recognize face from image
+        Recognize face from image.
 
         Args:
             face_image: Face image (numpy array)
             threshold: Similarity threshold for positive recognition
 
         Returns:
-            Tuple: (person_name, similarity_score)
+            Tuple: (person_name, similarity_score, reference_image_path)
         """
         if not self.known_faces:
             self.logger.warning("No known faces loaded for recognition")
-            return "Unknown", 0.0
+            return "Unknown", 0.0, None
 
         try:
-            # Generate embedding for the new face
             new_embedding = self.generate_embedding(face_image)
             if new_embedding is None:
-                return "Unknown", 0.0
+                return "Unknown", 0.0, None
 
-            # Compare with known faces
             best_match = "Unknown"
             best_score = 0.0
+            best_reference_image = None
 
-            for name, embeddings in self.known_faces.items():
-                for emb in embeddings:
-                    # Calculate cosine similarity
-                    similarity = self._cosine_similarity(new_embedding, emb)
-                    if similarity > best_score and similarity > threshold:
-                        best_score = similarity
-                        best_match = name
+            # Szukaj najlepszego dopasowania i zapamiętaj ścieżkę obrazu
+            for person_name in os.listdir(self.known_faces_dir):
+                person_dir = os.path.join(self.known_faces_dir, person_name)
+                if not os.path.isdir(person_dir):
+                    continue
 
-            return best_match, best_score
+                for img_file in os.listdir(person_dir):
+                    if not img_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        continue
+                    img_path = os.path.join(person_dir, img_file)
+                    try:
+                        img = cv2.imread(img_path)
+                        if img is None:
+                            continue
+
+                        emb = self.generate_embedding(img)
+                        if emb is None:
+                            continue
+
+                        similarity = self._cosine_similarity(new_embedding, emb)
+                        if similarity > best_score and similarity > threshold:
+                            best_score = similarity
+                            best_match = person_name
+                            best_reference_image = img_path
+                    except Exception as e:
+                        self.logger.warning(f"Error comparing with {img_path}: {str(e)}")
+                        continue
+
+            return best_match, best_score, best_reference_image
+
         except Exception as e:
             self.logger.error(f"Face recognition error: {str(e)}")
-            return "Unknown", 0.0
+            return "Unknown", 0.0, None
 
     def add_new_face(self, face_image: np.ndarray, person_name: str) -> bool:
         """
