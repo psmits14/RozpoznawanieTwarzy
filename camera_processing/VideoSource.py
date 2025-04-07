@@ -1,3 +1,5 @@
+import time
+
 import cv2
 from abc import ABC, abstractmethod
 
@@ -39,19 +41,23 @@ class VideoFileSource(VideoSource):
         self.cap = cv2.VideoCapture(file_path)
         if not self.cap.isOpened():
             raise RuntimeError(f"Nie można otworzyć pliku wideo: {file_path}")
-
+        self._processing_width = 1280
         self.paused = False
         self._frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self._fps = max(1, self.cap.get(cv2.CAP_PROP_FPS))  # Minimum 1 FPS
+        self._last_valid_frame = None  # Do przechowywania ostatniej klatki
 
     def read(self):
-        if self.paused:
-            return True, None  # Zwraca None gdy wideo jest zapauzowane
         ret, frame = self.cap.read()
-        if not ret and self._frame_count > 0:
-            # Zapętlanie wideo
-            self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            ret, frame = self.cap.read()
-        return ret, frame
+        if not ret:
+            return False, None
+
+        # Skalowanie do optymalnej rozdzielczości
+        if frame.shape[1] > self._processing_width:
+            scale = self._processing_width / frame.shape[1]
+            frame = cv2.resize(frame, (0, 0), fx=scale, fy=scale)
+
+        return True, frame
 
     def release(self):
         self.cap.release()

@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLineEdit, QScrollArea, QSlider
+    QLineEdit, QScrollArea, QSlider, QSizePolicy, QApplication
 )
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import Qt
@@ -24,16 +24,30 @@ class FaceAppUI(QWidget):
 
         self._setup_ui()
 
+        self._target_width = 1280  # Docelowa szerokość wideo
+        self._target_height = 720  # Docelowa wysokość wideo
+        self._setup_window_geometry()
+
         if is_video_source:
             self._add_video_controls()
 
     def _setup_ui(self):
+        # Główny układ pionowy dla lewej strony (obraz + kontrolki wideo)
+        left_column = QVBoxLayout()
+        left_column.setContentsMargins(0, 0, 0, 0)
+
         # Obraz z kamery
         self.video_label = QLabel("Obraz z kamery")
         self.video_label.setStyleSheet("background-color: black;")
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        left_column.addWidget(self.video_label, stretch=1)
 
-        # Scrollowana lista rozpoznań
+        # Kontrolki wideo (będą dodawane tylko dla źródła wideo)
+        self.video_controls = QHBoxLayout()
+        self.video_controls.setContentsMargins(5, 0, 5, 5)
+        left_column.addLayout(self.video_controls)
+
+        # Scrollowana lista rozpoznań (prawy panel - pozostaje bez zmian)
         self.recognition_panel = QVBoxLayout()
         self.recognition_panel.setAlignment(Qt.AlignmentFlag.AlignTop)
 
@@ -73,7 +87,7 @@ class FaceAppUI(QWidget):
         button_row.addWidget(self.confirm_button)
         preview_layout.addLayout(button_row)
 
-        # Prawy panel
+        # Prawy panel (pozostaje bez zmian)
         right_layout = QVBoxLayout()
         right_layout.addWidget(QLabel("Rozpoznane twarze:"))
         right_layout.addWidget(scroll_area)
@@ -81,21 +95,74 @@ class FaceAppUI(QWidget):
         right_layout.addWidget(self.add_button)
         right_layout.addLayout(preview_layout)
 
-        # Układ główny
+        # Główny układ poziomy
         main_layout = QHBoxLayout()
-        main_layout.addWidget(self.video_label, stretch=2)
+        main_layout.addLayout(left_column, stretch=3)  # Więcej miejsca dla obrazu
         main_layout.addLayout(right_layout, stretch=1)
         self.setLayout(main_layout)
 
-    def set_video_resolution(self, width: int, height: int):
-        self.video_label.setFixedSize(width, height)
 
-    def update_frame(self, frame: np.ndarray,
-                     detected_faces: list[np.ndarray],
-                     recognitions: list[dict]):
-        self.current_frame = frame.copy()
-        self._update_video_display(frame)
+    def update_frame(self, frame: np.ndarray, detected_faces: list[np.ndarray], recognitions: list[dict]):
+        # Konwersja klatki do formatu RGB
+        if frame is not None:
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, ch = rgb.shape
+            bytes_per_line = ch * w
+
+            # Tworzymy QImage
+            qt_image = QImage(rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+
+            # Skalowanie zachowujące proporcje
+            pixmap = QPixmap.fromImage(qt_image)
+            if not pixmap.isNull():
+                scaled_pixmap = pixmap.scaled(
+                    self.video_label.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self.video_label.setPixmap(scaled_pixmap)
+
         self._update_face_comparisons(detected_faces, recognitions)
+
+    def _setup_window_geometry(self):
+        # Ustawienia bazujące na rozdzielczości ekranu
+        screen = QApplication.primaryScreen().availableGeometry()
+        margin = 50
+
+        # Oblicz maksymalne rozmiary (90% ekranu z marginesem)
+        max_width = min(self._target_width, screen.width() - margin)
+        max_height = min(self._target_height, screen.height() - margin)
+
+        self.setMinimumSize(max_width // 2, max_height // 2)
+        self.resize(max_width, max_height)
+
+        # Centrowanie okna
+        center_point = screen.center()
+        self.move(center_point.x() - self.width() // 2,
+                  center_point.y() - self.height() // 2)
+
+    def set_video_resolution(self, width: int, height: int):
+        self.video_label.setMinimumSize(width // 4, height // 4)
+        self.video_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding
+        )
+
+    def update_video_controls(self, current_frame, total_frames):
+        if not hasattr(self, 'video_slider'):
+            return
+
+        self.video_slider.setMaximum(total_frames)
+        self.video_slider.setValue(current_frame)
+
+        # Aktualizacja czasu tylko jeśli wartości są prawidłowe
+        if hasattr(self, 'video_fps') and self.video_fps > 0:
+            current_time = current_frame / self.video_fps
+            total_time = total_frames / self.video_fps
+            self.time_label.setText(
+                f"{int(current_time // 60):02d}:{int(current_time % 60):02d}/"
+                f"{int(total_time // 60):02d}:{int(total_time % 60):02d}"
+            )
 
     def _update_video_display(self, frame: np.ndarray):
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -117,7 +184,8 @@ class FaceAppUI(QWidget):
             widget = self._create_face_comparison_widget(cam_face, ref_face, label)
             self.recognition_panel.addWidget(widget)
 
-    def _create_face_comparison_widget(self, cam_face: np.ndarray, ref_face: np.ndarray, label: str) -> QWidget:
+    @staticmethod
+    def _create_face_comparison_widget(cam_face: np.ndarray, ref_face: np.ndarray, label: str) -> QWidget:
         def to_pixmap(img, size=60):
             if img is None:
                 blank = np.full((size, size, 3), 180, dtype=np.uint8)
@@ -221,19 +289,40 @@ class FaceAppUI(QWidget):
         self.pending_face_crop = None
 
     def _add_video_controls(self):
-        # Dodajemy kontrolki do zarządzania wideo
+        """Dodaje kontrolki wideo pod obrazem"""
+        # Czyścimy istniejące elementy jeśli są
+        while self.video_controls.count():
+            item = self.video_controls.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # Przycisk pauzy
         self.play_pause_btn = QPushButton("Pauza")
-        self.play_pause_btn.clicked.connect(self._toggle_play_pause)
+        self.play_pause_btn.setFixedSize(80, 30)
 
+        # Suwak
         self.video_slider = QSlider(Qt.Orientation.Horizontal)
-        self.video_slider.sliderMoved.connect(self._on_slider_moved)
+        self.video_slider.setMinimum(0)
 
-        video_controls = QHBoxLayout()
-        video_controls.addWidget(self.play_pause_btn)
-        video_controls.addWidget(self.video_slider)
+        # Etykieta czasu
+        self.time_label = QLabel("00:00 / 00:00")
+        self.time_label.setFixedWidth(100)
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Dodajemy kontrolki do istniejącego layoutu
-        self.layout().insertLayout(1, video_controls)
+        # Dodajemy kontrolki
+        self.video_controls.addWidget(self.play_pause_btn)
+        self.video_controls.addWidget(self.video_slider)
+        self.video_controls.addWidget(self.time_label)
+
+        # Style dla lepszego wyglądu
+        self.video_slider.setStyleSheet("""
+            QSlider::handle:horizontal {
+                width: 10px;
+                background: #555;
+                margin: -5px 0;
+                border-radius: 5px;
+            }
+        """)
 
     def _toggle_play_pause(self):
         # Ta metoda będzie wywoływana przez FaceApp
@@ -242,10 +331,3 @@ class FaceAppUI(QWidget):
     def _on_slider_moved(self, position):
         # Ta metoda będzie wywoływana przez FaceApp
         pass
-
-    def update_video_controls(self, current_frame, total_frames):
-        if not self.is_video_source:
-            return
-
-        self.video_slider.setMaximum(total_frames)
-        self.video_slider.setValue(current_frame)

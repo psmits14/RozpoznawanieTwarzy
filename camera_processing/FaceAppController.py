@@ -10,13 +10,16 @@ class FaceAppController:
         self.face_app_ui = face_app_ui
         self.face_app = FaceApp(logger, face_app_ui, video_source)
 
+        frame_interval = getattr(self.face_app, '_frame_interval', 30)
         self.timer = QTimer()
         self.timer.timeout.connect(self._update)
-        self.timer.start(30)
+        self.timer.start(0)
 
         if isinstance(video_source, VideoFileSource):
             self.face_app_ui.play_pause_btn.clicked.connect(self._toggle_play_pause)
             self.face_app_ui.video_slider.sliderMoved.connect(self._on_slider_moved)
+            face_app_ui.video_fps = video_source._fps
+
 
     def _update(self):
         self.face_app.update()
