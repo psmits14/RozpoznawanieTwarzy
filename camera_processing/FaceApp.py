@@ -25,7 +25,6 @@ class FaceApp:
         self.detected_faces = []
         self.recognitions = []
 
-
         self.last_recognition_time = 0
         self.recognition_interval = 2
         self.next_face_id = 0
