@@ -1,4 +1,4 @@
-# camera_app.py
+# main.py
 
 import logging.config
 import sys
@@ -6,8 +6,8 @@ import warnings
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QTimer
 
-from camera_processing.FaceCameraApp import FaceCameraApp
-from camera_processing.CameraUI import CameraUI  # <-- nowy GUI!
+from camera_processing.WideoSourceApp import FaceCameraApp
+from camera_processing.FaceAppUI import CameraUI  # <-- nowy GUI!
 
 from torch.serialization import SourceChangeWarning
 warnings.filterwarnings("ignore", category=SourceChangeWarning)

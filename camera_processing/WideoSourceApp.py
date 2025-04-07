@@ -9,11 +9,17 @@ from camera_processing.FaceRecognizer import FaceRecognizer
 class FaceCameraApp:
     def __init__(self, logger, ui):
         self.logger = logger
-        self.ui = ui  # <- przekazujemy PyQt interfejs jako QWidget
+        self.ui = ui
         self.ui.on_add_face_callback = self._handle_add_face_from_frame
         self.ui.on_prepare_face_crop_callback = self._prepare_face_crop
 
-        self.camera = self._initialize_camera()
+        self.current_source = "camera"  # 'camera' lub 'video'
+        self.video_path = ""  # ścieżka do pliku wideo
+        self.video_capture = None
+        self.camera = None
+
+        self._initialize_wideo_suorce()
+
         frame_width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.ui.set_video_resolution(frame_width, frame_height)
@@ -34,12 +40,51 @@ class FaceCameraApp:
         self.recognition_memory_time = 5
         self.face_reappear_threshold = 1
 
+    def _initialize_wideo_suorce(self):
+        """Inicjalizuje źródło wideo (kamerę lub plik)"""
+        if self.current_source == "camera":
+            self._initialize_camera()
+        else:
+            self._initialize_video()
+
     def _initialize_camera(self):
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
+        """Inicjalizuje kamerę internetową"""
+        if self.video_capture is not None:
+            self.video_capture.release()
+
+        self.camera = cv2.VideoCapture(0)
+        if not self.camera.isOpened():
             self.logger.error("Nie można uruchomić kamery.")
             raise RuntimeError("Nie można uruchomić kamery")
-        return cap
+
+        frame_width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.ui.set_video_resolution(frame_width, frame_height)
+
+    def _initialize_video(self):
+        """Inicjalizuje odtwarzanie wideo"""
+        if self.camera is not None:
+            self.camera.release()
+
+        if not self.video_path:
+            self.logger.warning("Nie wybrano pliku wideo")
+            return
+
+        self.video_capture = cv2.VideoCapture(self.video_path)
+        if not self.video_capture.isOpened():
+            self.logger.error(f"Nie można otworzyć pliku wideo: {self.video_path}")
+            raise RuntimeError(f"Nie można otworzyć pliku wideo: {self.video_path}")
+
+        frame_width = int(self.video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(self.video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.ui.set_video_resolution(frame_width, frame_height)
+
+    # def _initialize_camera(self):
+    #     cap = cv2.VideoCapture(0)
+    #     if not cap.isOpened():
+    #         self.logger.error("Nie można uruchomić kamery.")
+    #         raise RuntimeError("Nie można uruchomić kamery")
+    #     return cap
 
     def update(self):
         """Wywoływane co ~30ms przez QTimer (w GUI)"""
