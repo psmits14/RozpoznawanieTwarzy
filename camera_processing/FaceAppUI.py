@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLineEdit, QScrollArea
+    QLineEdit, QScrollArea, QSlider
 )
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import Qt
@@ -9,8 +9,8 @@ import numpy as np
 import os
 
 
-class CameraUI(QWidget):
-    def __init__(self):
+class FaceAppUI(QWidget):
+    def __init__(self, is_video_source=False):
         super().__init__()
         self.setWindowTitle("Aplikacja Kamery - Detekcja i Rozpoznawanie Twarzy")
         self.setMinimumSize(1000, 600)
@@ -20,7 +20,12 @@ class CameraUI(QWidget):
         self.on_add_face_callback = None
         self.on_prepare_face_crop_callback = None
 
+        self.is_video_source = is_video_source
+
         self._setup_ui()
+
+        if is_video_source:
+            self._add_video_controls()
 
     def _setup_ui(self):
         # Obraz z kamery
@@ -214,3 +219,33 @@ class CameraUI(QWidget):
         self.confirm_button.setVisible(False)
         self.cancel_button.setVisible(False)
         self.pending_face_crop = None
+
+    def _add_video_controls(self):
+        # Dodajemy kontrolki do zarządzania wideo
+        self.play_pause_btn = QPushButton("Pauza")
+        self.play_pause_btn.clicked.connect(self._toggle_play_pause)
+
+        self.video_slider = QSlider(Qt.Orientation.Horizontal)
+        self.video_slider.sliderMoved.connect(self._on_slider_moved)
+
+        video_controls = QHBoxLayout()
+        video_controls.addWidget(self.play_pause_btn)
+        video_controls.addWidget(self.video_slider)
+
+        # Dodajemy kontrolki do istniejącego layoutu
+        self.layout().insertLayout(1, video_controls)
+
+    def _toggle_play_pause(self):
+        # Ta metoda będzie wywoływana przez FaceApp
+        pass
+
+    def _on_slider_moved(self, position):
+        # Ta metoda będzie wywoływana przez FaceApp
+        pass
+
+    def update_video_controls(self, current_frame, total_frames):
+        if not self.is_video_source:
+            return
+
+        self.video_slider.setMaximum(total_frames)
+        self.video_slider.setValue(current_frame)

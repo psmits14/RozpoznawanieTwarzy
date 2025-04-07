@@ -6,16 +6,16 @@ from camera_processing.FaceDetector import FaceDetector
 from camera_processing.FaceRecognizer import FaceRecognizer
 
 
-class FaceCameraApp:
-    def __init__(self, logger, ui):
+class FaceApp:
+    def __init__(self, logger, ui, video_source):
         self.logger = logger
-        self.ui = ui  # <- przekazujemy PyQt interfejs jako QWidget
+        self.ui = ui
         self.ui.on_add_face_callback = self._handle_add_face_from_frame
         self.ui.on_prepare_face_crop_callback = self._prepare_face_crop
 
-        self.camera = self._initialize_camera()
-        frame_width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.video_source = video_source
+
+        frame_width, frame_height = self.video_source.get_frame_size()
         self.ui.set_video_resolution(frame_width, frame_height)
 
         self.detector = FaceDetector(logger)
@@ -34,30 +34,14 @@ class FaceCameraApp:
         self.recognition_memory_time = 5
         self.face_reappear_threshold = 1
 
-    def _initialize_camera(self):
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            self.logger.error("Nie można uruchomić kamery.")
-            raise RuntimeError("Nie można uruchomić kamery")
-        return cap
-
     def update(self):
         """Wywoływane co ~30ms przez QTimer (w GUI)"""
-        ret, frame = self.camera.read()
-        if not ret:
-            return
-
-        frame = self.process_frame(frame)  # <- tu powstaje frame z obramowaniami
-        self.ui.update_frame(frame, self.detected_faces, self.recognitions)
-
-    def update(self):
-        """Wywoływane co ~30ms przez QTimer (w GUI)"""
-        ret, frame = self.camera.read()
-        if not ret:
+        ret, frame = self.video_source.read()
+        if not ret or frame is None:  # frame może być None gdy wideo jest zapauzowane
             return
 
         frame = self.process_frame(frame)
-        self.ui.update_frame(frame, self.detected_faces, self.recognitions)  # dicty: face_id -> ...
+        self.ui.update_frame(frame, self.detected_faces, self.recognitions)
 
     def process_frame(self, frame):
         frame = cv2.flip(frame, 1)

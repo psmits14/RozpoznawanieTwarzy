@@ -1,6 +1,6 @@
 Configuration:
 ```
-python camera_app.py
+python main.py
 ```
 
 Wybierz twarz:
