@@ -19,6 +19,7 @@ class CameraUI(QWidget):
         self.pending_face_crop = None
         self.on_add_face_callback = None
         self.on_prepare_face_crop_callback = None
+        self.on_source_change_callback = None  # <- nowe callback
 
         self._setup_ui()
 
@@ -68,8 +69,24 @@ class CameraUI(QWidget):
         button_row.addWidget(self.confirm_button)
         preview_layout.addLayout(button_row)
 
+        self.camera_button = QPushButton("Kamera")
+        self.camera_button.setCheckable(True)
+        self.camera_button.setChecked(True)
+        self.camera_button.clicked.connect(lambda: self._on_source_change("camera"))
+
+        self.video_button = QPushButton("Wideo")
+        self.video_button.setCheckable(True)
+        self.video_button.clicked.connect(lambda: self._on_source_change("video"))
+
+        source_layout = QHBoxLayout()
+        source_layout.addWidget(QLabel("Źródło:"))
+        source_layout.addWidget(self.camera_button)
+        source_layout.addWidget(self.video_button)
+        source_layout.addStretch()
+
         # Prawy panel
         right_layout = QVBoxLayout()
+        right_layout.addLayout(source_layout)
         right_layout.addWidget(QLabel("Rozpoznane twarze:"))
         right_layout.addWidget(scroll_area)
         right_layout.addWidget(self.name_input)
@@ -214,3 +231,14 @@ class CameraUI(QWidget):
         self.confirm_button.setVisible(False)
         self.cancel_button.setVisible(False)
         self.pending_face_crop = None
+
+    def _on_source_change(self, source_type):
+        if source_type == "video":
+            self.camera_button.setChecked(False)
+            self.video_button.setChecked(True)
+        else:
+            self.camera_button.setChecked(True)
+            self.video_button.setChecked(False)
+
+        if self.on_source_change_callback:
+            self.on_source_change_callback(source_type)
