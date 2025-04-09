@@ -87,7 +87,7 @@ class FaceAppUI(QWidget):
         button_row.addWidget(self.confirm_button)
         preview_layout.addLayout(button_row)
 
-        # Prawy panel (pozostaje bez zmian)
+        # Prawy panel
         right_layout = QVBoxLayout()
         right_layout.addWidget(QLabel("Rozpoznane twarze:"))
         right_layout.addWidget(scroll_area)
@@ -97,12 +97,13 @@ class FaceAppUI(QWidget):
 
         # Główny układ poziomy
         main_layout = QHBoxLayout()
-        main_layout.addLayout(left_column, stretch=3)  # Więcej miejsca dla obrazu
+        main_layout.addLayout(left_column, stretch=3)
         main_layout.addLayout(right_layout, stretch=1)
         self.setLayout(main_layout)
 
 
     def update_frame(self, frame: np.ndarray, detected_faces: list[np.ndarray], recognitions: list[dict]):
+        self.current_frame = frame.copy()
         # Konwersja klatki do formatu RGB
         if frame is not None:
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
