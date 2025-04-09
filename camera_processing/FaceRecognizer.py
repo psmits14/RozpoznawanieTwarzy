@@ -14,6 +14,7 @@ from core.model_handler.face_detection.FaceDetModelHandler import FaceDetModelHa
 from core.model_loader.face_alignment.FaceAlignModelLoader import FaceAlignModelLoader
 from core.model_handler.face_alignment.FaceAlignModelHandler import FaceAlignModelHandler
 
+THRESHOLD = 0.6
 
 class FaceRecognizer:
     def __init__(self, logger: logging.Logger, model_path: str = 'models', known_faces_dir: str = 'my_faces', face_detector_handler=None):
@@ -147,7 +148,7 @@ class FaceRecognizer:
             self.logger.error(f"Error generating face embedding: {str(e)}")
             return None
 
-    def recognize_face(self, face_image: np.ndarray, threshold: float = 0.6) -> Tuple[str, float, Optional[str]]:
+    def recognize_face(self, face_image: np.ndarray, threshold: float = THRESHOLD) -> Tuple[str, float, Optional[str]]:
         """
         Recognize face from image.
 
