@@ -33,6 +33,11 @@ class FaceApp:
         self.recognition_memory_time = 5
         self.face_reappear_threshold = 1
 
+        self._processing_scale = 0.5  # Skala przetwarzania
+        self._min_face_size = 100    # Minimalny rozmiar twarzy
+        self._last_processed = 0     # Ostatnie przetworzenie
+        self._processing_interval = 0.1  # 100ms między przetworzeniami
+
     def update(self):
         """Wywoływane co ~30ms przez QTimer (w GUI)"""
         ret, frame = self.video_source.read()

@@ -16,9 +16,10 @@ class FaceAppController:
         self.timer.start(0)
 
         if isinstance(video_source, VideoFileSource):
-            self.face_app_ui.play_pause_btn.clicked.connect(self._toggle_play_pause)
-            self.face_app_ui.video_slider.sliderMoved.connect(self._on_slider_moved)
-            face_app_ui.video_fps = video_source._fps
+            target_fps = min(30, video_source._fps)  # Limit do 30 FPS
+            interval = max(10, int(1000 / target_fps))  # 10-33ms
+        else:
+            interval = 30
 
 
     def _update(self):
