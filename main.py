@@ -46,15 +46,28 @@ class Application:
 
     def _start_face_app(self, video_source, is_video_source):
         self.start_ui.hide()
-
+        threshold = self.start_ui.get_threshold_value()
         face_app_ui = FaceAppUI(is_video_source=is_video_source)
+        face_app_ui.on_back_callback = self._handle_back_to_start
         self.face_app_controller = FaceAppController(
             self.logger,
             face_app_ui,
-            video_source
+            video_source,
+            recognition_threshold = threshold
         )
 
         face_app_ui.show()
+
+    def _handle_back_to_start(self):
+        if self.face_app_controller:
+            self.face_app_controller.stop()
+
+            # Zamknij okno interfejsu rozpoznawania
+            self.face_app_controller.face_app_ui.close()
+
+            self.face_app_controller = None
+
+        self.start_ui.show()
 
     def _on_exit(self):
         if self.face_app_controller:

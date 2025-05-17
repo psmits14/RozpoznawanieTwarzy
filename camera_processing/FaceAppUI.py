@@ -30,6 +30,8 @@ class FaceAppUI(QWidget):
         self._target_height = 720  # Docelowa wysokość wideo
         self._setup_window_geometry()
 
+        self.on_back_callback = None
+
         if is_video_source:
             self._add_video_controls()
 
@@ -60,6 +62,9 @@ class FaceAppUI(QWidget):
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(scroll_widget)
+
+        self.back_button = QPushButton("Wróć do konfiguratora")
+        self.back_button.clicked.connect(self._on_back_clicked)
 
         # Pole imienia i przycisk dodania
         self.name_input = QLineEdit()
@@ -97,6 +102,7 @@ class FaceAppUI(QWidget):
         right_layout.addWidget(self.name_input)
         right_layout.addWidget(self.add_button)
         right_layout.addLayout(preview_layout)
+        right_layout.addWidget(self.back_button)
 
         # Główny układ poziomy
         main_layout = QHBoxLayout()
@@ -244,6 +250,10 @@ class FaceAppUI(QWidget):
     def _on_add_clicked(self):
         self.name_input.show()
         self.name_input.setFocus()
+
+    def _on_back_clicked(self):
+        if self.on_back_callback:
+            self.on_back_callback()
 
     def _submit_face_name(self):
         name = self.name_input.text().strip()

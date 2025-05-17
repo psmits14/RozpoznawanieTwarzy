@@ -13,14 +13,14 @@ from datetime import datetime
 
 
 class FaceApp:
-    def __init__(self, logger, ui, video_source):
+    def __init__(self, logger, ui, video_source, recognition_threshold=0.5):
         self.logger = logger
         self.ui = ui
         self.ui.on_add_face_callback = self._handle_add_face_from_frame
         self.ui.on_prepare_face_crop_callback = self._prepare_face_crop
 
         self.video_source = video_source
-
+        self.recognition_threshold = recognition_threshold
         frame_width, frame_height = self.video_source.get_frame_size()
         self.ui.set_video_resolution(frame_width, frame_height)
 
@@ -110,7 +110,7 @@ class FaceApp:
                 name, score, reference_path = self.recognizer.recognize_face(face_img)
                 self.last_recognition_time = current_time
 
-                if score >= 0.5:
+                if score >= self.recognition_threshold:
                     label_name = name
                 else:
                     label_name = 'Unknown'
