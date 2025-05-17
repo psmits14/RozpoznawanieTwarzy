@@ -35,8 +35,9 @@ class FaceApp:
 
         self._processing_scale = 0.5  # Skala przetwarzania
         self._min_face_size = 100    # Minimalny rozmiar twarzy
-        self._last_processed = 0     # Ostatnie przetworzenie
-        self._processing_interval = 0.1  # 100ms między przetworzeniami
+        self._last_processed = 0  # Czas ostatniej detekcji
+        self._processing_interval = 0.2  # 300ms między detekcjami
+        self._last_detections = []  # Bufor ostatnich detekcji
 
     def update(self):
         """Wywoływane co ~30ms przez QTimer (w GUI)"""
@@ -49,9 +50,13 @@ class FaceApp:
 
     def process_frame(self, frame):
         frame = cv2.flip(frame, 1)
-        detections = self.detector.detect_faces(frame)
+        now = time.time()
+        if now - self._last_processed >= self._processing_interval:
+            self._last_detections = self.detector.detect_faces(frame)
+            self._last_processed = now
+        detections = self._last_detections
         self.detected_faces = []
-        current_time = time.time()
+        current_time = now
 
         matched_faces = self._match_faces_to_trackers(detections)
         new_face_trackers = OrderedDict()

@@ -10,20 +10,22 @@ class FaceAppController:
         self.face_app_ui = face_app_ui
         self.face_app = FaceApp(logger, face_app_ui, video_source)
 
-        frame_interval = getattr(self.face_app, '_frame_interval', 30)
         self.timer = QTimer()
         self.timer.timeout.connect(self._update)
-        self.timer.start(0)
 
+        # Obliczanie odpowiedniego interwału odświeżania
         if isinstance(video_source, VideoFileSource):
-            target_fps = min(30, video_source._fps)  # Limit do 30 FPS
-            interval = max(10, int(1000 / target_fps))  # 10-33ms
+            target_fps = min(30, video_source._fps)  # ogranicz do max 30 FPS
+            interval = max(10, int(1000 / target_fps))  # w ms
         else:
-            interval = 30
+            interval = 33  # standardowe 30 FPS dla kamery
 
+        self.timer.start(interval)  # użycie wyliczonego interwału
 
     def _update(self):
         self.face_app.update()
+
+        # Aktualizacja kontrolek wideo (jeśli to plik wideo)
         if isinstance(self.face_app.video_source, VideoFileSource):
             current_frame = self.face_app.video_source.get_current_frame_position()
             total_frames = self.face_app.video_source.get_frame_count()
