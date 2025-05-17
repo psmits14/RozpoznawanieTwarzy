@@ -2,8 +2,10 @@ import cv2
 import time
 import numpy as np
 from collections import OrderedDict
+from PyQt6.QtCore import QThread
 from camera_processing.FaceDetector import FaceDetector
 from camera_processing.FaceRecognizer import FaceRecognizer
+from camera_processing.DetectionWorker import DetectionWorker
 
 
 class FaceApp:
@@ -33,27 +35,30 @@ class FaceApp:
         self.recognition_memory_time = 5
         self.face_reappear_threshold = 1
 
-        self._processing_scale = 0.5  # Skala przetwarzania
-        self._min_face_size = 100    # Minimalny rozmiar twarzy
-        self._last_processed = 0  # Czas ostatniej detekcji
-        self._processing_interval = 0.2  # 300ms między detekcjami
-        self._last_detections = []  # Bufor ostatnich detekcji
+        self._processing_interval = 0.2
+        self._last_processed = 0
+        self._last_detections = []
+        self._detection_running = False
+        self._detection_thread = None
 
     def update(self):
-        """Wywoływane co ~30ms przez QTimer (w GUI)"""
+        start = time.time()
         ret, frame = self.video_source.read()
-        if not ret or frame is None:  # frame może być None gdy wideo jest zapauzowane
+        if not ret or frame is None:
             return
 
         frame = self.process_frame(frame)
         self.ui.update_frame(frame, self.detected_faces, self.recognitions)
+        elapsed = time.time() - start
 
     def process_frame(self, frame):
         frame = cv2.flip(frame, 1)
         now = time.time()
-        if now - self._last_processed >= self._processing_interval:
-            self._last_detections = self.detector.detect_faces(frame)
+
+        if now - self._last_processed >= self._processing_interval and not self._detection_running:
+            self._start_async_detection(frame)
             self._last_processed = now
+
         detections = self._last_detections
         self.detected_faces = []
         current_time = now
@@ -76,41 +81,29 @@ class FaceApp:
                 is_new = face_id not in self.face_trackers
                 time_since_last = time.time() - self.face_trackers[face_id]['last_seen'] if not is_new else float('inf')
 
-                # Czy trzeba rozpoznać ponownie?
                 if (is_new or time_since_last > self.face_reappear_threshold or
-                        (not is_new and self.face_trackers[face_id]['recognition']['name'] in ['Nieznany',
-                                                                                               'Przetwarzanie...'])):
+                        (not is_new and self.face_trackers[face_id]['recognition']['name'] in ['Nieznany', 'Przetwarzanie...'])):
                     recognition = {'name': 'Przetwarzanie...', 'score': 0}
                     needs_recognition = True
                 else:
                     recognition = self.face_trackers[face_id]['recognition']
                     needs_recognition = False
 
-                # Wymuszone rozpoznanie
                 if needs_recognition or current_time - self.last_recognition_time > self.recognition_interval:
                     name, score, reference_path = self.recognizer.recognize_face(face_img)
                     recognition = {
                         'name': name,
                         'score': score,
-                        'reference': reference_path  # <-- to dodajesz
+                        'reference': reference_path
                     }
                     self.last_recognition_time = current_time
 
-                # === RYSOWANIE OBRAZKÓW I NAZW ===
-                if recognition['name'] == 'Unknown':
-                    color = (0, 0, 255)  # Czerwony
-                elif recognition['name'] == 'Przetwarzanie...':
-                    color = (255, 165, 0)  # Pomarańczowy
-                else:
-                    color = (0, 255, 0)  # Zielony
-
-                # Rysowanie obramowania i napisu
+                color = (0, 255, 0) if recognition['name'] not in ['Unknown', 'Przetwarzanie...'] else (
+                    (0, 0, 255) if recognition['name'] == 'Unknown' else (255, 165, 0))
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                 label = f"{recognition['name']} ({recognition['score'] * 100:.1f}%)"
-                cv2.putText(frame, label, (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-                # Zapamiętaj rozpoznaną twarz
                 new_face_trackers[face_id] = {
                     'last_box': box,
                     'recognition': recognition,
@@ -118,12 +111,29 @@ class FaceApp:
                 }
                 self.recognitions.append(recognition)
 
-        # Wyczyść przeterminowane trackery
         while len(new_face_trackers) > self.max_trackers:
             new_face_trackers.popitem(last=False)
 
         self.face_trackers = new_face_trackers
         return frame
+
+    def _start_async_detection(self, frame):
+        self._detection_running = True
+        self._detection_thread = QThread()
+        self._detection_worker = DetectionWorker(self.detector, frame.copy())
+        self._detection_worker.moveToThread(self._detection_thread)
+
+        self._detection_thread.started.connect(self._detection_worker.run)
+        self._detection_worker.finished.connect(self._on_detection_finished)
+        self._detection_worker.finished.connect(self._detection_thread.quit)
+        self._detection_worker.finished.connect(self._detection_worker.deleteLater)
+        self._detection_thread.finished.connect(self._detection_thread.deleteLater)
+
+        self._detection_thread.start()
+
+    def _on_detection_finished(self, detections):
+        self._last_detections = detections
+        self._detection_running = False
 
     def _match_faces_to_trackers(self, detections):
         current_boxes = [list(map(int, det[:4])) for det in detections]
@@ -178,26 +188,21 @@ class FaceApp:
                 self.logger.warning("Nie wykryto twarzy w obrazie.")
                 return
 
-            # Zakładamy, że pierwsza wykryta twarz to ta, którą chcemy dodać
             x1, y1, x2, y2 = map(int, detections[0][:4])
             h, w = frame.shape[:2]
             x1, y1 = max(0, x1), max(0, y1)
             x2, y2 = min(w - 1, x2), min(h - 1, y2)
-
             if x2 <= x1 or y2 <= y1:
                 self.logger.warning("Błąd: niewłaściwy rozmiar wykrytej twarzy.")
                 return
 
             cropped_face = frame[y1:y2, x1:x2]
-
-            # Dodaj wyciętą twarz do bazy
             success = self.recognizer.add_new_face(cropped_face, name)
             if success:
                 self.logger.info(f"Dodano nową twarz: {name}")
                 self.last_recognition_time = 0
             else:
                 self.logger.warning(f"Nie udało się dodać twarzy: {name}")
-
         except Exception as e:
             self.logger.error(f"Błąd przy dodawaniu twarzy: {str(e)}")
 

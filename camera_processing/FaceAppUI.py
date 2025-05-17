@@ -324,13 +324,5 @@ class FaceAppUI(QWidget):
             }
         """)
 
-    def _toggle_play_pause(self):
-        # Ta metoda będzie wywoływana przez FaceApp
-        pass
-
-    def _on_slider_moved(self, position):
-        # Ta metoda będzie wywoływana przez FaceApp
-        pass
-
     def set_video_fps(self, fps: float):
         self.video_fps = fps

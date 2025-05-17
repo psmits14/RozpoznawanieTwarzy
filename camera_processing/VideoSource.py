@@ -1,8 +1,5 @@
-import time
-
 import cv2
 from abc import ABC, abstractmethod
-
 
 class VideoSource(ABC):
     @abstractmethod
@@ -45,20 +42,11 @@ class VideoFileSource(VideoSource):
         self.paused = False
         self._frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self._fps = max(1, self.cap.get(cv2.CAP_PROP_FPS))  # Minimum 1 FPS
-        self._last_valid_frame = None  # Do przechowywania ostatniej klatki
-        self._skip_frames = 1         # Co ile klatek przetwarzać
-        self._frame_counter = 0
 
     def read(self):
-        self._frame_counter += 1
         ret, frame = self.cap.read()
-
         if not ret:
             return False, None
-
-        # Pomijanie klatek dla wydajności
-        if self._frame_counter % self._skip_frames != 0:
-            return True, None
 
         # Skalowanie
         if frame.shape[1] > self._processing_width:

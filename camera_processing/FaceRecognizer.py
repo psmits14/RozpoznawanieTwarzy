@@ -142,10 +142,15 @@ class FaceRecognizer:
             for person_name, embeddings in self.known_faces.items():
                 for emb, img_path in embeddings:
                     similarity = self._cosine_similarity(new_embedding, emb)
-                    if similarity > best_score and similarity > threshold:
+                    if similarity > best_score:
                         best_score = similarity
                         best_match = person_name
                         best_reference_image = img_path
+
+            # Dodany warunek minimalnego progu rozpoznania
+            if best_score < 0.5:
+                best_match = "Unknown"
+                best_reference_image = None
 
             return best_match, best_score, best_reference_image
 

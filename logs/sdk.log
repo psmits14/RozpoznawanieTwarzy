@@ -1,61 +1,27 @@
-INFO 2025-05-17 12:30:31 FaceAlignModelLoader.py: 30] Successfully loaded the face landmark model!
-INFO 2025-05-17 12:31:46 FaceDetModelLoader.py: 16] Start to analyze the face detection model, model path: models, model category: face_detection，model name: face_detection_1.0
-INFO 2025-05-17 12:31:46 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:31:46 FaceDetModelLoader.py: 34] Successfully loaded the face detection model!
-INFO 2025-05-17 12:31:46 FaceRecModelLoader.py: 16] Start to analyze the face recognition model, model path: models, model category: face_recognition，model name: face_recognition_1.0
-INFO 2025-05-17 12:31:46 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:31:46 FaceRecModelLoader.py: 32] Model was wrapped in DataParallel. Unwrapping it for CPU usage.
-INFO 2025-05-17 12:31:46 FaceRecModelLoader.py: 40] Successfully loaded the face recognition model!
-INFO 2025-05-17 12:31:46 FaceAlignModelLoader.py: 16] Start to analyze the face landmark model, model path: models, model category: face_alignment，model name: face_alignment_1.0
-INFO 2025-05-17 12:31:46 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:31:46 FaceAlignModelLoader.py: 30] Successfully loaded the face landmark model!
-INFO 2025-05-17 12:34:33 FaceDetModelLoader.py: 16] Start to analyze the face detection model, model path: models, model category: face_detection，model name: face_detection_1.0
-INFO 2025-05-17 12:34:33 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:34:33 FaceDetModelLoader.py: 34] Successfully loaded the face detection model!
-INFO 2025-05-17 12:34:33 FaceRecModelLoader.py: 16] Start to analyze the face recognition model, model path: models, model category: face_recognition，model name: face_recognition_1.0
-INFO 2025-05-17 12:34:33 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:34:33 FaceRecModelLoader.py: 32] Model was wrapped in DataParallel. Unwrapping it for CPU usage.
-INFO 2025-05-17 12:34:33 FaceRecModelLoader.py: 40] Successfully loaded the face recognition model!
-INFO 2025-05-17 12:34:33 FaceAlignModelLoader.py: 16] Start to analyze the face landmark model, model path: models, model category: face_alignment，model name: face_alignment_1.0
-INFO 2025-05-17 12:34:33 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:34:33 FaceAlignModelLoader.py: 30] Successfully loaded the face landmark model!
-INFO 2025-05-17 12:50:04 FaceDetModelLoader.py: 16] Start to analyze the face detection model, model path: models, model category: face_detection，model name: face_detection_1.0
-INFO 2025-05-17 12:50:04 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:50:04 FaceDetModelLoader.py: 34] Successfully loaded the face detection model!
-INFO 2025-05-17 12:50:04 FaceRecModelLoader.py: 16] Start to analyze the face recognition model, model path: models, model category: face_recognition，model name: face_recognition_1.0
-INFO 2025-05-17 12:50:04 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:50:04 FaceRecModelLoader.py: 32] Model was wrapped in DataParallel. Unwrapping it for CPU usage.
-INFO 2025-05-17 12:50:04 FaceRecModelLoader.py: 40] Successfully loaded the face recognition model!
-INFO 2025-05-17 12:50:04 FaceAlignModelLoader.py: 16] Start to analyze the face landmark model, model path: models, model category: face_alignment，model name: face_alignment_1.0
-INFO 2025-05-17 12:50:04 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:50:04 FaceAlignModelLoader.py: 30] Successfully loaded the face landmark model!
-INFO 2025-05-17 12:52:13 FaceDetModelLoader.py: 16] Start to analyze the face detection model, model path: models, model category: face_detection，model name: face_detection_1.0
-INFO 2025-05-17 12:52:13 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:52:13 FaceDetModelLoader.py: 34] Successfully loaded the face detection model!
-INFO 2025-05-17 12:52:13 FaceRecModelLoader.py: 16] Start to analyze the face recognition model, model path: models, model category: face_recognition，model name: face_recognition_1.0
-INFO 2025-05-17 12:52:13 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:52:13 FaceRecModelLoader.py: 32] Model was wrapped in DataParallel. Unwrapping it for CPU usage.
-INFO 2025-05-17 12:52:13 FaceRecModelLoader.py: 40] Successfully loaded the face recognition model!
-INFO 2025-05-17 12:52:13 FaceAlignModelLoader.py: 16] Start to analyze the face landmark model, model path: models, model category: face_alignment，model name: face_alignment_1.0
-INFO 2025-05-17 12:52:13 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:52:13 FaceAlignModelLoader.py: 30] Successfully loaded the face landmark model!
-INFO 2025-05-17 12:52:36 FaceDetModelLoader.py: 16] Start to analyze the face detection model, model path: models, model category: face_detection，model name: face_detection_1.0
-INFO 2025-05-17 12:52:36 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:52:36 FaceDetModelLoader.py: 34] Successfully loaded the face detection model!
-INFO 2025-05-17 12:52:36 FaceRecModelLoader.py: 16] Start to analyze the face recognition model, model path: models, model category: face_recognition，model name: face_recognition_1.0
-INFO 2025-05-17 12:52:36 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:52:36 FaceRecModelLoader.py: 32] Model was wrapped in DataParallel. Unwrapping it for CPU usage.
-INFO 2025-05-17 12:52:36 FaceRecModelLoader.py: 40] Successfully loaded the face recognition model!
-INFO 2025-05-17 12:52:36 FaceAlignModelLoader.py: 16] Start to analyze the face landmark model, model path: models, model category: face_alignment，model name: face_alignment_1.0
-INFO 2025-05-17 12:52:36 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:52:36 FaceAlignModelLoader.py: 30] Successfully loaded the face landmark model!
-INFO 2025-05-17 12:53:09 FaceDetModelLoader.py: 16] Start to analyze the face detection model, model path: models, model category: face_detection，model name: face_detection_1.0
-INFO 2025-05-17 12:53:09 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:53:09 FaceDetModelLoader.py: 34] Successfully loaded the face detection model!
-INFO 2025-05-17 12:53:09 FaceRecModelLoader.py: 16] Start to analyze the face recognition model, model path: models, model category: face_recognition，model name: face_recognition_1.0
-INFO 2025-05-17 12:53:09 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:53:09 FaceRecModelLoader.py: 32] Model was wrapped in DataParallel. Unwrapping it for CPU usage.
-INFO 2025-05-17 12:53:09 FaceRecModelLoader.py: 40] Successfully loaded the face recognition model!
-INFO 2025-05-17 12:53:09 FaceAlignModelLoader.py: 16] Start to analyze the face landmark model, model path: models, model category: face_alignment，model name: face_alignment_1.0
-INFO 2025-05-17 12:53:09 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
-INFO 2025-05-17 12:53:09 FaceAlignModelLoader.py: 30] Successfully loaded the face landmark model!
+INFO 2025-05-17 13:45:14 FaceRecModelLoader.py: 16] Start to analyze the face recognition model, model path: models, model category: face_recognition，model name: face_recognition_1.0
+INFO 2025-05-17 13:45:14 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
+INFO 2025-05-17 13:45:14 FaceRecModelLoader.py: 32] Model was wrapped in DataParallel. Unwrapping it for CPU usage.
+INFO 2025-05-17 13:45:14 FaceRecModelLoader.py: 40] Successfully loaded the face recognition model!
+INFO 2025-05-17 13:45:14 FaceAlignModelLoader.py: 16] Start to analyze the face landmark model, model path: models, model category: face_alignment，model name: face_alignment_1.0
+INFO 2025-05-17 13:45:14 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
+INFO 2025-05-17 13:45:14 FaceAlignModelLoader.py: 30] Successfully loaded the face landmark model!
+INFO 2025-05-17 13:46:15 FaceDetModelLoader.py: 16] Start to analyze the face detection model, model path: models, model category: face_detection，model name: face_detection_1.0
+INFO 2025-05-17 13:46:15 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
+INFO 2025-05-17 13:46:16 FaceDetModelLoader.py: 34] Successfully loaded the face detection model!
+INFO 2025-05-17 13:46:16 FaceRecModelLoader.py: 16] Start to analyze the face recognition model, model path: models, model category: face_recognition，model name: face_recognition_1.0
+INFO 2025-05-17 13:46:16 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
+INFO 2025-05-17 13:46:16 FaceRecModelLoader.py: 32] Model was wrapped in DataParallel. Unwrapping it for CPU usage.
+INFO 2025-05-17 13:46:16 FaceRecModelLoader.py: 40] Successfully loaded the face recognition model!
+INFO 2025-05-17 13:46:16 FaceAlignModelLoader.py: 16] Start to analyze the face landmark model, model path: models, model category: face_alignment，model name: face_alignment_1.0
+INFO 2025-05-17 13:46:16 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
+INFO 2025-05-17 13:46:16 FaceAlignModelLoader.py: 30] Successfully loaded the face landmark model!
+INFO 2025-05-17 13:50:09 FaceDetModelLoader.py: 16] Start to analyze the face detection model, model path: models, model category: face_detection，model name: face_detection_1.0
+INFO 2025-05-17 13:50:09 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
+INFO 2025-05-17 13:50:09 FaceDetModelLoader.py: 34] Successfully loaded the face detection model!
+INFO 2025-05-17 13:50:09 FaceRecModelLoader.py: 16] Start to analyze the face recognition model, model path: models, model category: face_recognition，model name: face_recognition_1.0
+INFO 2025-05-17 13:50:09 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
+INFO 2025-05-17 13:50:09 FaceRecModelLoader.py: 32] Model was wrapped in DataParallel. Unwrapping it for CPU usage.
+INFO 2025-05-17 13:50:09 FaceRecModelLoader.py: 40] Successfully loaded the face recognition model!
+INFO 2025-05-17 13:50:09 FaceAlignModelLoader.py: 16] Start to analyze the face landmark model, model path: models, model category: face_alignment，model name: face_alignment_1.0
+INFO 2025-05-17 13:50:09 BaseModelLoader.py: 34] Successfully parsed the model configuration file meta.json!
+INFO 2025-05-17 13:50:09 FaceAlignModelLoader.py: 30] Successfully loaded the face landmark model!
