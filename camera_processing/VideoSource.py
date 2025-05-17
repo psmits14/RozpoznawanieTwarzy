@@ -35,6 +35,7 @@ class CameraSource(VideoSource):
 
 class VideoFileSource(VideoSource):
     def __init__(self, file_path):
+        self.file_path = file_path
         self.cap = cv2.VideoCapture(file_path)
         if not self.cap.isOpened():
             raise RuntimeError(f"Nie można otworzyć pliku wideo: {file_path}")

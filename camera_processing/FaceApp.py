@@ -1,11 +1,15 @@
+import csv
+
 import cv2
 import time
+import os
 import numpy as np
 from collections import OrderedDict
 from PyQt6.QtCore import QThread
 from camera_processing.FaceDetector import FaceDetector
 from camera_processing.FaceRecognizer import FaceRecognizer
 from camera_processing.DetectionWorker import DetectionWorker
+from datetime import datetime
 
 
 class FaceApp:
@@ -28,7 +32,7 @@ class FaceApp:
         self.recognitions = []
 
         self.last_recognition_time = 0
-        self.recognition_interval = 2
+        self.recognition_interval = 0       # ZMIEN JESLI NIE CHCESZ ZEBY TAK CZESTO MIERZONO ROZPOZNANIE
         self.next_face_id = 0
         self.face_trackers = OrderedDict()
         self.max_trackers = 10
@@ -40,6 +44,16 @@ class FaceApp:
         self._last_detections = []
         self._detection_running = False
         self._detection_thread = None
+
+        self.is_video_file = hasattr(video_source, 'get_current_frame_position')
+        self.recognition_log = []
+        self.output_log_path = None  # zostanie ustawiona później
+        # jeśli to plik wideo, ustaw ścieżkę zapisu logu
+        if self.is_video_file and hasattr(video_source, 'file_path'):
+            video_name = os.path.splitext(os.path.basename(video_source.file_path))[0]
+            os.makedirs("test_results", exist_ok=True)
+            self.output_log_path = os.path.join("test_results", f"{video_name}_log.csv")
+        self._last_logged_time_by_name = {}
 
     def update(self):
         start = time.time()
@@ -74,42 +88,72 @@ class FaceApp:
             x1, y1 = max(0, x1), max(0, y1)
             x2, y2 = min(w - 1, x2), min(h - 1, y2)
 
-            if x2 > x1 and y2 > y1:
-                face_img = frame[y1:y2, x1:x2]
-                self.detected_faces.append(face_img)
+            if x2 <= x1 or y2 <= y1:
+                continue
 
-                is_new = face_id not in self.face_trackers
-                time_since_last = time.time() - self.face_trackers[face_id]['last_seen'] if not is_new else float('inf')
+            face_img = frame[y1:y2, x1:x2]
+            self.detected_faces.append(face_img)
 
-                if (is_new or time_since_last > self.face_reappear_threshold or
-                        (not is_new and self.face_trackers[face_id]['recognition']['name'] in ['Nieznany', 'Przetwarzanie...'])):
-                    recognition = {'name': 'Przetwarzanie...', 'score': 0}
-                    needs_recognition = True
+            is_new = face_id not in self.face_trackers
+            time_since_last = time.time() - self.face_trackers[face_id]['last_seen'] if not is_new else float('inf')
+
+            if (is_new or time_since_last > self.face_reappear_threshold or
+                    (not is_new and self.face_trackers[face_id]['recognition']['name'] in ['Nieznany',
+                                                                                           'Przetwarzanie...'])):
+                recognition = {'name': 'Przetwarzanie...', 'score': 0}
+                needs_recognition = True
+            else:
+                recognition = self.face_trackers[face_id]['recognition']
+                needs_recognition = False
+
+            if needs_recognition or current_time - self.last_recognition_time > self.recognition_interval:
+                name, score, reference_path = self.recognizer.recognize_face(face_img)
+                self.last_recognition_time = current_time
+
+                if score >= 0.5:
+                    label_name = name
                 else:
-                    recognition = self.face_trackers[face_id]['recognition']
-                    needs_recognition = False
+                    label_name = 'Unknown'
+                    reference_path = None
+                    score = 0.0
 
-                if needs_recognition or current_time - self.last_recognition_time > self.recognition_interval:
-                    name, score, reference_path = self.recognizer.recognize_face(face_img)
-                    recognition = {
-                        'name': name,
-                        'score': score,
-                        'reference': reference_path
-                    }
-                    self.last_recognition_time = current_time
-
-                color = (0, 255, 0) if recognition['name'] not in ['Unknown', 'Przetwarzanie...'] else (
-                    (0, 0, 255) if recognition['name'] == 'Unknown' else (255, 165, 0))
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                label = f"{recognition['name']} ({recognition['score'] * 100:.1f}%)"
-                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
-                new_face_trackers[face_id] = {
-                    'last_box': box,
-                    'recognition': recognition,
-                    'last_seen': current_time
+                recognition = {
+                    'name': label_name,
+                    'score': score,
+                    'reference': reference_path
                 }
-                self.recognitions.append(recognition)
+
+            # Kolory
+            if recognition['name'] == 'Unknown':
+                color = (0, 0, 255)
+            elif recognition['name'] == 'Przetwarzanie...':
+                color = (255, 165, 0)
+            else:
+                color = (0, 255, 0)
+
+            label = f"{recognition['name']} ({recognition['score'] * 100:.1f}%)"
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+            new_face_trackers[face_id] = {
+                'last_box': box,
+                'recognition': recognition,
+                'last_seen': current_time
+            }
+
+            self.recognitions.append(recognition)
+
+            # Zapisz do logu dokładnie to, co wyświetlasz
+            if self.is_video_file and recognition['name'] != 'Przetwarzanie...':
+                current_frame = self.video_source.get_current_frame_position()
+                fps = self.video_source._fps
+                current_time_sec = round(current_frame / fps, 2)
+
+                self.recognition_log.append({
+                    "time": current_time_sec,
+                    "name": recognition['name'],
+                    "score": round(recognition['score'] * 100, 1)
+                })
 
         while len(new_face_trackers) > self.max_trackers:
             new_face_trackers.popitem(last=False)
@@ -221,3 +265,19 @@ class FaceApp:
         except Exception as e:
             self.logger.error(f"Błąd podczas przygotowania podglądu twarzy: {str(e)}")
             return None
+
+    def save_recognition_log(self):
+        if not self.is_video_file or not self.recognition_log or not self.output_log_path:
+            return
+
+        try:
+            with open(self.output_log_path, "w", newline="", encoding="utf-8") as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=["time", "name", "score"])
+                writer.writeheader()
+                for row in self.recognition_log:
+                    writer.writerow(row)
+            self.logger.info(f"Zapisano log rozpoznań do pliku: {self.output_log_path}")
+        except Exception as e:
+            self.logger.error(f"Błąd zapisu logu rozpoznań: {str(e)}")
+
+

@@ -27,7 +27,7 @@ class Application:
         self.start_ui.on_video_selected = self._start_video
 
         self.face_app_controller = None
-
+        self.app.aboutToQuit.connect(self._on_exit)
         self.start_ui.show()
 
     def _start_camera(self):
@@ -55,6 +55,10 @@ class Application:
         )
 
         face_app_ui.show()
+
+    def _on_exit(self):
+        if self.face_app_controller:
+            self.face_app_controller.stop()
 
     def run(self):
         sys.exit(self.app.exec())

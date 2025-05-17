@@ -62,3 +62,7 @@ class FaceAppController:
         self.face_app_ui._slider_being_dragged = False
         frame_num = self.face_app_ui.video_slider.value()
         self.video_source.set_frame_position(frame_num)
+
+    def stop(self):
+        if self.face_app:
+            self.face_app.save_recognition_log()
