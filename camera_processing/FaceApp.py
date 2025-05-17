@@ -36,7 +36,7 @@ class FaceApp:
         self.recognitions = []
 
         self.last_recognition_time = 0
-        self.recognition_interval = 0       # ZMIEN JESLI NIE CHCESZ ZEBY TAK CZESTO MIERZONO ROZPOZNANIE
+        self.recognition_interval = 2       # ZMIEN JESLI NIE CHCESZ ZEBY TAK CZESTO MIERZONO ROZPOZNANIE
         self.next_face_id = 0
         self.face_trackers = OrderedDict()
         self.max_trackers = 10
