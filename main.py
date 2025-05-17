@@ -47,13 +47,17 @@ class Application:
     def _start_face_app(self, video_source, is_video_source):
         self.start_ui.hide()
         threshold = self.start_ui.get_threshold_value()
+        sound_on = self.start_ui.is_sound_enabled()
+        print("[DEBUG] sound_enabled =", sound_on)
         face_app_ui = FaceAppUI(is_video_source=is_video_source)
         face_app_ui.on_back_callback = self._handle_back_to_start
+
         self.face_app_controller = FaceAppController(
             self.logger,
             face_app_ui,
             video_source,
-            recognition_threshold = threshold
+            recognition_threshold=threshold,
+            sound_enabled=sound_on
         )
 
         face_app_ui.show()

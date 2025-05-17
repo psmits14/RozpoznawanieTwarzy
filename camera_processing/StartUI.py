@@ -11,7 +11,7 @@ class StartUI(QWidget):
         super().__init__()
         self.setWindowTitle("Wybór źródła obrazu")
         self.setFixedSize(400, 350)
-
+        self.sound_enabled = False
         self.on_camera_selected = None
         self.on_video_selected = None
 
@@ -89,7 +89,12 @@ class StartUI(QWidget):
                 width: 1px;
             }
         """)
-
+        # Przycisk włączania/wyłączania dźwięku
+        self.sound_button = QPushButton()
+        self._update_sound_button_text()
+        self.sound_button.setFixedSize(200, 30)
+        self.sound_button.clicked.connect(self._toggle_sound)
+        self.sound_button.setStyleSheet("font-size: 13px;")
 
         # === Układ główny ===
         layout.addWidget(title)
@@ -98,6 +103,9 @@ class StartUI(QWidget):
         layout.addSpacing(20)
         layout.addWidget(self.threshold_label)
         layout.addWidget(self.threshold_slider)
+        layout.addSpacing(10)
+        layout.addWidget(self.sound_button, alignment=Qt.AlignmentFlag.AlignCenter)
+
 
         self.setLayout(layout)
 
@@ -136,3 +144,15 @@ class StartUI(QWidget):
 
     def get_threshold_value(self) -> float:
         return self.threshold_slider.value() / 100.0
+
+    def _toggle_sound(self):
+        self.sound_enabled = not self.sound_enabled
+        self._update_sound_button_text()
+
+    def _update_sound_button_text(self):
+        status = "Włączony" if self.sound_enabled else "Wyłączony"
+        self.sound_button.setText(f"Dźwięk: {status}")
+
+    def is_sound_enabled(self) -> bool:
+        return self.sound_enabled
+

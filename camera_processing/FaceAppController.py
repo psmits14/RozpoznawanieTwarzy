@@ -3,17 +3,18 @@ from camera_processing.FaceApp import FaceApp
 from camera_processing.VideoSource import VideoFileSource, CameraSource
 
 class FaceAppController:
-    def __init__(self, logger, face_app_ui, video_source, recognition_threshold=0.5):
+    def __init__(self, logger, face_app_ui, video_source, recognition_threshold=0.5, sound_enabled=True):
         self.logger = logger
         self.face_app_ui = face_app_ui
         self.video_source = video_source
+
         self.face_app = FaceApp(
             logger,
             face_app_ui,
             video_source,
-            recognition_threshold=recognition_threshold
+            recognition_threshold=recognition_threshold,
+            sound_enabled=sound_enabled
         )
-
         # Slider drag state
         self.face_app_ui._slider_being_dragged = False
 

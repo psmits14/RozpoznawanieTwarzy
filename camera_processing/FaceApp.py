@@ -1,23 +1,27 @@
 import csv
-
 import cv2
 import time
 import os
 import numpy as np
 from collections import OrderedDict
-from PyQt6.QtCore import QThread
+from PyQt6.QtCore import QThread, QUrl
+from PyQt6.QtMultimedia import QSoundEffect  # <-- Dźwięk przez Qt
+
 from camera_processing.FaceDetector import FaceDetector
 from camera_processing.FaceRecognizer import FaceRecognizer
 from camera_processing.DetectionWorker import DetectionWorker
-from datetime import datetime
 
 
 class FaceApp:
-    def __init__(self, logger, ui, video_source, recognition_threshold=0.5):
+    def __init__(self, logger, ui, video_source, recognition_threshold=0.5,  sound_enabled=False):
         self.logger = logger
         self.ui = ui
         self.ui.on_add_face_callback = self._handle_add_face_from_frame
         self.ui.on_prepare_face_crop_callback = self._prepare_face_crop
+
+        self.sound_enabled = sound_enabled
+        self.last_alert_sound_time = 0
+        self.alert_cooldown = 2  # sekundy
 
         self.video_source = video_source
         self.recognition_threshold = recognition_threshold
@@ -54,6 +58,12 @@ class FaceApp:
             os.makedirs("test_results", exist_ok=True)
             self.output_log_path = os.path.join("test_results", f"{video_name}_log.csv")
         self._last_logged_time_by_name = {}
+
+        # === SOUND SETUP ===
+        self.alert_effect = QSoundEffect()
+        self.alert_effect.setSource(QUrl.fromLocalFile("sounds/alert.wav"))
+        self.alert_effect.setLoopCount(1)
+        self.alert_effect.setVolume(0.9)
 
     def update(self):
         start = time.time()
@@ -126,6 +136,9 @@ class FaceApp:
             # Kolory
             if recognition['name'] == 'Unknown':
                 color = (0, 0, 255)
+                if self.sound_enabled:
+                    self._play_unknown_sound()
+                    print("ALERTTT")
             elif recognition['name'] == 'Przetwarzanie...':
                 color = (255, 165, 0)
             else:
@@ -279,5 +292,23 @@ class FaceApp:
             self.logger.info(f"Zapisano log rozpoznań do pliku: {self.output_log_path}")
         except Exception as e:
             self.logger.error(f"Błąd zapisu logu rozpoznań: {str(e)}")
+
+    import simpleaudio as sa
+
+    def _play_unknown_sound(self):
+        now = time.time()
+        if now - self.last_alert_sound_time < self.alert_cooldown:
+            return
+
+        if self.alert_effect.isPlaying():
+            return
+
+        self.logger.info("[DŹWIĘK] Odtwarzanie alertu...")
+        self.alert_effect.play()
+        self.last_alert_sound_time = now
+
+
+
+
 
 
