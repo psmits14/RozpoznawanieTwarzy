@@ -14,6 +14,8 @@ class FaceAppUI(QWidget):
         super().__init__()
         self.setWindowTitle("Aplikacja Kamery - Detekcja i Rozpoznawanie Twarzy")
         self.setMinimumSize(1000, 600)
+        self.video_fps = 0
+        self._slider_being_dragged = False  # <- ważne!
 
         self.current_frame = None
         self.pending_face_crop = None
@@ -41,6 +43,7 @@ class FaceAppUI(QWidget):
         self.video_label.setStyleSheet("background-color: black;")
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         left_column.addWidget(self.video_label, stretch=1)
+
 
         # Kontrolki wideo (będą dodawane tylko dla źródła wideo)
         self.video_controls = QHBoxLayout()
@@ -150,21 +153,17 @@ class FaceAppUI(QWidget):
         )
 
     def update_video_controls(self, current_frame, total_frames):
-        if not hasattr(self, 'video_slider'):
-            return
+        if hasattr(self, 'video_slider') and not self._slider_being_dragged:
+            self.video_slider.setMaximum(total_frames)
+            self.video_slider.setValue(current_frame)
 
-        self.video_slider.setMaximum(total_frames)
-        self.video_slider.setValue(current_frame)
-
-        # Aktualizacja czasu tylko jeśli wartości są prawidłowe
-        if hasattr(self, 'video_fps') and self.video_fps > 0:
+        if self.video_fps > 0:
             current_time = current_frame / self.video_fps
             total_time = total_frames / self.video_fps
             self.time_label.setText(
-                f"{int(current_time // 60):02d}:{int(current_time % 60):02d}/"
+                f"{int(current_time // 60):02d}:{int(current_time % 60):02d} / "
                 f"{int(total_time // 60):02d}:{int(total_time % 60):02d}"
             )
-
     def _update_video_display(self, frame: np.ndarray):
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
@@ -332,3 +331,6 @@ class FaceAppUI(QWidget):
     def _on_slider_moved(self, position):
         # Ta metoda będzie wywoływana przez FaceApp
         pass
+
+    def set_video_fps(self, fps: float):
+        self.video_fps = fps
