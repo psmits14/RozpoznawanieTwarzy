@@ -82,7 +82,7 @@ class VideoProcessor:
             self.logger,
             face_app_ui,
             video_source,
-            recognition_threshold=0.6,  # Domyślna wartość
+            recognition_threshold=0.1,  # Domyślna wartość
             sound_enabled=False
         )
 
