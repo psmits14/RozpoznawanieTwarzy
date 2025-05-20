@@ -15,7 +15,7 @@ class FaceAppUI(QWidget):
         self.setWindowTitle("Aplikacja Kamery - Detekcja i Rozpoznawanie Twarzy")
         self.setMinimumSize(1000, 600)
         self.video_fps = 0
-        self._slider_being_dragged = False  # <- ważne!
+        self._slider_being_dragged = False
 
         self.current_frame = None
         self.pending_face_crop = None

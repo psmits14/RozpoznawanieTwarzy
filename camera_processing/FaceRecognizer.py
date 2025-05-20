@@ -93,7 +93,7 @@ class FaceRecognizer:
             self.logger.error(f"Error generating embedding from {image_path}: {str(e)}")
             return None
 
-    def generate_embedding(self, face_image: np.ndarray) -> Optional[np.ndarray]:
+    def generate_embedding(self, face_image: np.ndarray, return_landmarks=False) -> Optional[tuple]:
         if self.recognition_handler is None:
             raise RuntimeError("Face recognition model not initialized")
         if self.face_detector_handler is None or self.face_aligner is None:
@@ -120,7 +120,11 @@ class FaceRecognizer:
 
             cropped_face = self.face_cropper.crop_image_by_mat(face_image, landmarks_list)
             embedding = self.recognition_handler.inference_on_image(cropped_face)
-            return embedding
+
+            if return_landmarks:
+                return embedding, landmarks
+            else:
+                return embedding
         except Exception as e:
             self.logger.error(f"Error generating face embedding: {str(e)}")
             return None
@@ -131,9 +135,17 @@ class FaceRecognizer:
             return "Unknown", 0.0, None
 
         try:
-            new_embedding = self.generate_embedding(face_image)
-            if new_embedding is None:
+            result = self.generate_embedding(face_image, return_landmarks=True)
+            if result is None:
                 return "Unknown", 0.0, None
+
+            new_embedding, landmarks = result
+
+            # Wykrycie okularów
+            if self._has_glasses(face_image, landmarks):
+                self.logger.debug("[GLASSES] Okulary wykryte.")
+            else:
+                self.logger.debug("[GLASSES] Brak okularów.")
 
             best_match = "Unknown"
             best_score = 0.0
@@ -147,12 +159,17 @@ class FaceRecognizer:
                         best_match = person_name
                         best_reference_image = img_path
 
-            # Dodany warunek minimalnego progu rozpoznania
             if best_score < 0.5:
                 best_match = "Unknown"
                 best_reference_image = None
 
             return best_match, best_score, best_reference_image
+
+        except Exception as e:
+            self.logger.error(f"Face recognition error: {str(e)}")
+            return "Unknown", 0.0, None
+
+
 
         except Exception as e:
             self.logger.error(f"Face recognition error: {str(e)}")
@@ -185,3 +202,35 @@ class FaceRecognizer:
     @staticmethod
     def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+    def _has_glasses(self, img: np.ndarray, landmarks: np.ndarray) -> bool:
+        if landmarks.ndim == 1:
+            landmarks = landmarks.reshape((-1, 2)).astype(np.int32)
+
+        left_eye = landmarks[36:42]
+        right_eye = landmarks[42:48]
+
+        def region_stats(points):
+            if len(points) == 0:
+                return 0, 0
+            rect = cv2.boundingRect(np.array(points, dtype=np.int32))
+            x, y, w, h = rect
+            roi = img[y:y + h, x:x + w]
+            if roi.size == 0:
+                return 0, 0
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            return np.std(gray), np.mean(gray)
+
+        std_l, mean_l = region_stats(left_eye)
+        std_r, mean_r = region_stats(right_eye)
+        mean_std = (std_l + std_r) / 2
+        mean_mean = (mean_l + mean_r) / 2
+
+        self.logger.debug(f"[GLASSES-CHECK] std: {mean_std:.2f}, mean: {mean_mean:.2f}")
+
+        if mean_std > 50:
+            self.logger.debug("[GLASSES-CHECK] ✅ WYKRYTO OKULARY")
+            return True
+        else:
+            self.logger.debug("[GLASSES-CHECK] ❌ Brak okularów")
+            return False
