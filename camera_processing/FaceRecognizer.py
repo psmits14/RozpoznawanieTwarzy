@@ -156,40 +156,51 @@ class FaceRecognizer:
 
     def recognize_face(self, face_image: np.ndarray, threshold: float = THRESHOLD) -> Tuple[str, float, Optional[str]]:
         """
-        Rozpoznaje twarz na podstawie znanych embeddingów.
-        Zwraca nazwę osoby, wynik podobieństwa i ścieżkę do referencyjnego obrazu.
+        Rozpoznaje twarz na podstawie znanych embeddingów (wektorów cech).
+        Zwraca:
+            - nazwę osoby (jeśli została rozpoznana) lub "Unknown",
+            - wartość podobieństwa (Similarity Score),
+            - ścieżkę do pasującego obrazu wzorcowego (jeśli istnieje).
         """
+
+        # Jeśli nie ma żadnych zapisanych twarzy, nie można rozpoznać – zwracamy "Unknown"
         if not self.known_faces:
             self.logger.warning("No known faces loaded for recognition")
             return "Unknown", 0.0, None
 
         try:
+            # Generujemy embedding oraz punkty charakterystyczne (landmarki)
             result = self.generate_embedding(face_image, return_landmarks=True)
             if result is None:
                 return "Unknown", 0.0, None
 
             new_embedding, landmarks = result
 
-            # Wykrycie okularów
+            # Próba wykrycia okularów
             if self._has_glasses(face_image, landmarks):
                 self.logger.debug("[GLASSES] Okulary wykryte.")
             else:
                 self.logger.debug("[GLASSES] Brak okularów.")
 
+            # Inicjalizacja zmiennych dla najlepszego dopasowania
             best_match = "Unknown"
             best_score = 0.0
             best_reference_image = None
 
-            # Porównanie embeddingu z bazą znanych osób
+            # Iteracja po wszystkich znanych osobach i ich embeddingach
             for person_name, embeddings in self.known_faces.items():
                 for emb, img_path in embeddings:
+                    # Obliczamy podobieństwo pomiędzy nowym embeddingiem a wzorcem
                     similarity = self._cosine_similarity(new_embedding, emb)
+
+                    # Jeśli znaleziono lepsze dopasowanie – zapamiętujemy
                     if similarity > best_score:
                         best_score = similarity
                         best_match = person_name
                         best_reference_image = img_path
 
-            if best_score < THRESHOLD:    # Próg rozpoznania
+            # Jeśli najlepszy wynik nie przekracza progu – uznajemy, że osoba jest nieznana
+            if best_score < THRESHOLD:
                 best_match = "Unknown"
                 best_reference_image = None
 
@@ -200,34 +211,41 @@ class FaceRecognizer:
             return "Unknown", 0.0, None
 
 
-
         except Exception as e:
             self.logger.error(f"Face recognition error: {str(e)}")
             return "Unknown", 0.0, None
 
     def add_new_face(self, face_image: np.ndarray, person_name: str) -> bool:
         """
-        Dodaje nową twarz do znanych osób i zapisuje embedding oraz zdjęcie.
+        Dodaje nową twarz do bazy znanych osób:
+        - zapisuje zdjęcie twarzy w odpowiednim folderze,
+        - generuje embedding (wektor cech),
+        - dodaje dane do słownika znanych twarzy.
+
+        Zwraca True w przypadku sukcesu, False w przypadku błędu.
         """
         try:
             person_dir = os.path.join(self.known_faces_dir, person_name)
             os.makedirs(person_dir, exist_ok=True)
-
             timestamp = int(time.time())
             img_path = os.path.join(person_dir, f"{timestamp}.jpg")
-
             cv2.imwrite(img_path, face_image)
 
+            # Generujemy embedding twarzy – wektor cech potrzebny do porównywania
             embedding = self.generate_embedding(face_image)
             if embedding is None:
                 raise ValueError("Failed to generate face embedding")
 
+            # Inicjalizacja listy embeddingów dla osoby, jeśli to jej pierwsze wystąpienie
             if person_name not in self.known_faces:
                 self.known_faces[person_name] = []
+
+            # Dodajemy embedding i ścieżkę do zdjęcia do listy znanych twarzy
             self.known_faces[person_name].append((embedding, img_path))
 
             self.logger.info(f"Successfully added new face for {person_name}")
             return True
+
         except Exception as e:
             self.logger.error(f"Failed to add new face: {str(e)}")
             return False
@@ -242,22 +260,36 @@ class FaceRecognizer:
         if landmarks.ndim == 1:
             landmarks = landmarks.reshape((-1, 2)).astype(np.int32)
 
+        # Wydziel punkty odpowiadające lewemu i prawemu oku
         left_eye = landmarks[66:74]
         right_eye = landmarks[75:83]
 
         def region_stats(points):
+            """
+            Dla podanych punktów (np. obszaru oka) oblicz:
+            - odchylenie standardowe jasności (std),
+            - średnią jasność (mean)
+            """
             if len(points) == 0:
                 return 0, 0
+
+            # Wyznacz prostokąt ograniczający obszar punktów
             rect = cv2.boundingRect(np.array(points, dtype=np.int32))
             x, y, w, h = rect
+
+            # Wyodrębnij region obrazu odpowiadający temu prostokątowi
             roi = img[y:y + h, x:x + w]
             if roi.size == 0:
                 return 0, 0
+
             gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+
+            # Zwróć odchylenie standardowe i średnią jasność
             return np.std(gray), np.mean(gray)
 
         std_l, mean_l = region_stats(left_eye)
         std_r, mean_r = region_stats(right_eye)
+
         mean_std = (std_l + std_r) / 2
         mean_mean = (mean_l + mean_r) / 2
 
