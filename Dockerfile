@@ -57,4 +57,4 @@ COPY . .
 RUN rm -rf /usr/local/lib/python3.11/site-packages/cv2/qt && \
     rm -f /usr/local/lib/python3.11/site-packages/cv2/qt.conf
 
-CMD ["/bin/sh", "-c", "QT_QPA_PLATFORM_PLUGIN_PATH=/usr/local/lib/python3.11/site-packages/PyQt6/Qt6/plugins/platforms QT_PLUGIN_PATH= QT_DEBUG_PLUGINS=1 python main.py"]
+CMD ["/bin/sh", "-c", "QT_QPA_PLATFORM_PLUGIN_PATH=/usr/local/lib/python3.11/site-packages/PyQt6/Qt6/plugins/platforms QT_PLUGIN_PATH= python main.py"]
