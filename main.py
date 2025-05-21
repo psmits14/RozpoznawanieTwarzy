@@ -14,6 +14,7 @@ from torch.serialization import SourceChangeWarning
 warnings.filterwarnings("ignore", category=SourceChangeWarning)
 
 def configure_logging():
+    """Konfiguracja loggera na podstawie pliku konfiguracyjnego"""
     logging.config.fileConfig("config/logging.conf")
     return logging.getLogger('api')
 
@@ -31,6 +32,7 @@ class Application:
         self.start_ui.show()
 
     def _start_camera(self):
+        """Uruchamia aplikację z kamerą jako źródłem obrazu"""
         try:
             video_source = CameraSource()
             self._start_face_app(video_source, is_video_source=False)
@@ -38,6 +40,7 @@ class Application:
             QMessageBox.critical(self.start_ui, "Błąd", str(e))
 
     def _start_video(self, video_path):
+        """Uruchamia aplikację z plikiem wideo jako źródłem obrazu"""
         try:
             video_source = VideoFileSource(video_path)
             self._start_face_app(video_source, is_video_source=True)
@@ -45,6 +48,7 @@ class Application:
             QMessageBox.critical(self.start_ui, "Błąd", str(e))
 
     def _start_face_app(self, video_source, is_video_source):
+        """Uruchamia główną aplikację rozpoznawania twarzy z wybranym źródłem obrazu"""
         self.start_ui.hide()
         threshold = self.start_ui.get_threshold_value()
         sound_on = self.start_ui.is_sound_enabled()
@@ -63,6 +67,7 @@ class Application:
         face_app_ui.show()
 
     def _handle_back_to_start(self):
+        """Powrót z aplikacji rozpoznawania do ekranu początkowego"""
         if self.face_app_controller:
             self.face_app_controller.stop()
 
@@ -74,10 +79,12 @@ class Application:
         self.start_ui.show()
 
     def _on_exit(self):
+        """Obsługa zamykania aplikacji"""
         if self.face_app_controller:
             self.face_app_controller.stop()
 
     def run(self):
+        """Uruchomienie pętli aplikacji Qt"""
         sys.exit(self.app.exec())
 
 

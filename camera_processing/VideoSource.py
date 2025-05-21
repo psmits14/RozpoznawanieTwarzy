@@ -1,20 +1,24 @@
 import cv2
 from abc import ABC, abstractmethod
 
+# Abstrakcyjna klasa bazowa dla źródeł wideo
 class VideoSource(ABC):
     @abstractmethod
     def read(self):
+        """Odczytuje jedną klatkę ze źródła wideo."""
         pass
 
     @abstractmethod
     def release(self):
+        """Zwalnia zasoby związane ze źródłem wideo."""
         pass
 
     @abstractmethod
     def get_frame_size(self):
+        """Zwraca rozmiar klatek (szerokość, wysokość)."""
         pass
 
-
+# Źródło wideo z kamery
 class CameraSource(VideoSource):
     def __init__(self, camera_index=0):
         self.cap = cv2.VideoCapture(camera_index)
@@ -28,11 +32,13 @@ class CameraSource(VideoSource):
         self.cap.release()
 
     def get_frame_size(self):
+        """Zwraca rozdzielczość kamery."""
         width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         return width, height
 
 
+# Źródło wideo z pliku
 class VideoFileSource(VideoSource):
     def __init__(self, file_path):
         self.file_path = file_path
@@ -65,13 +71,17 @@ class VideoFileSource(VideoSource):
         return width, height
 
     def toggle_pause(self):
+        """Przełącza pauzę/wznowienie odtwarzania"""
         self.paused = not self.paused
 
     def get_current_frame_position(self):
+        """Zwraca numer aktualnie odtwarzanej klatki"""
         return int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
 
     def get_frame_count(self):
+        """Zwraca całkowitą liczbę klatek w pliku"""
         return self._frame_count
 
     def set_frame_position(self, frame_num):
+        """Ustawia numer klatki do odtworzenia"""
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)

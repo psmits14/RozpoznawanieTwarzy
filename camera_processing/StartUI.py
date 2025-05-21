@@ -11,23 +11,24 @@ class StartUI(QWidget):
         super().__init__()
         self.setWindowTitle("Wybór źródła obrazu")
         self.setFixedSize(400, 350)
-        self.sound_enabled = False
+        self.sound_enabled = False          # Flaga określająca, czy dźwięk jest włączony
         self.on_camera_selected = None
         self.on_video_selected = None
 
         self._setup_ui()
 
     def _setup_ui(self):
+        """Główny pionowy layout z wyśrodkowaniem i odstępami między elementami"""
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(25)
 
-        # === Tytuł ===
+        # Nazwa okna
         title = QLabel("Wybierz źródło obrazu")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("font-size: 20px; font-weight: bold;")
 
-        # === Przyciski wyboru ===
+        # Przyciski wyboru
         camera_btn = QPushButton("Kamera")
         camera_btn.setFixedSize(200, 50)
         camera_btn.clicked.connect(self._handle_camera_click)
@@ -50,7 +51,7 @@ class StartUI(QWidget):
                 }
             """)
 
-        # === Próg rozpoznania ===
+        # Próg rozpoznania
         self.threshold_label = QLabel("Próg rozpoznania: 50%")
         self.threshold_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.threshold_label.setStyleSheet("font-size: 14px;")
@@ -96,7 +97,7 @@ class StartUI(QWidget):
         self.sound_button.clicked.connect(self._toggle_sound)
         self.sound_button.setStyleSheet("font-size: 13px;")
 
-        # === Układ główny ===
+        # Układ główny
         layout.addWidget(title)
         layout.addWidget(camera_btn, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(video_btn, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -110,9 +111,10 @@ class StartUI(QWidget):
         self.setLayout(layout)
 
     def _handle_camera_click(self):
+        """Próba otwarcia kamery pod indeksem 0 (domyślna kamera)"""
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
-            QMessageBox.critical(self, "Błąd", "Nie można uruchomić kamery. Sprawdź czy jest podłączona.")
+            QMessageBox.critical(self, "Błąd", "Nie można uruchomić kamery.")
             return
         cap.release()
 
@@ -120,6 +122,7 @@ class StartUI(QWidget):
             self.on_camera_selected()
 
     def _handle_video_click(self):
+        """Otwarcie okna dialogowego do wyboru pliku wideo"""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Wybierz plik wideo",
@@ -140,19 +143,24 @@ class StartUI(QWidget):
             self.on_video_selected(file_path)
 
     def _on_threshold_changed(self, value):
+        """Aktualizacja tekstu etykiety progu rozpoznania podczas przesuwania suwaka"""
         self.threshold_label.setText(f"Próg rozpoznania: {value}%")
 
     def get_threshold_value(self) -> float:
+        """Zwraca wartość progu rozpoznania jako liczba zmiennoprzecinkowa 0.0-1.0"""
         return self.threshold_slider.value() / 100.0
 
     def _toggle_sound(self):
+        """Przełączanie stanu dźwięku (włącz/wyłącz)"""
         self.sound_enabled = not self.sound_enabled
         self._update_sound_button_text()
 
     def _update_sound_button_text(self):
+        """Ustawia tekst przycisku dźwięku w zależności od stanu"""
         status = "Włączony" if self.sound_enabled else "Wyłączony"
         self.sound_button.setText(f"Dźwięk: {status}")
 
     def is_sound_enabled(self) -> bool:
+        """Zwraca aktualny stan dźwięku (czy jest włączony sygnał dżwiękowy dla nierozpoznanych twarzy)"""
         return self.sound_enabled
 

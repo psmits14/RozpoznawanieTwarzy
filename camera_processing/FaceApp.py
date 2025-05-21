@@ -21,34 +21,39 @@ class FaceApp:
 
         self.sound_enabled = sound_enabled
         self.last_alert_sound_time = 0
-        self.alert_cooldown = 2  # sekundy
+        self.alert_cooldown = 2  # Minimalny czas (s) między alertami dźwiękowymi
 
         self.video_source = video_source
         self.recognition_threshold = recognition_threshold
         frame_width, frame_height = self.video_source.get_frame_size()
         self.ui.set_video_resolution(frame_width, frame_height)
 
+        # Inicjalizacja detektora i rozpoznawania twarzy
         self.detector = FaceDetector(logger)
         self.recognizer = FaceRecognizer(logger, face_detector_handler=self.detector.face_handler)
         self.recognizer.initialize_face_detector(self.detector.face_handler)
 
+        # Dane wykrytych twarzy i rozpoznań
         self.detected_faces = []
         self.recognitions = []
 
+        # Parametry rozpoznawania twarzy
         self.last_recognition_time = 0
-        self.recognition_interval = 2       # ZMIEN JESLI NIE CHCESZ ZEBY TAK CZESTO MIERZONO ROZPOZNANIE
+        self.recognition_interval = 2       # Odstęp czasowy między rozpoznaniami
         self.next_face_id = 0
         self.face_trackers = OrderedDict()
         self.max_trackers = 10
         self.recognition_memory_time = 5
         self.face_reappear_threshold = 1
 
+        # Parametry przetwarzania detekcji
         self._processing_interval = 0.2
         self._last_processed = 0
         self._last_detections = []
         self._detection_running = False
         self._detection_thread = None
 
+        # Jeśli źródłem jest plik wideo – ustaw flagę i nazwę pliku do logowania
         self.is_video_file = hasattr(video_source, 'get_current_frame_position')
         self.recognition_log = []
         self.output_log_path = None  # zostanie ustawiona później
@@ -59,13 +64,14 @@ class FaceApp:
             self.output_log_path = os.path.join("test_results", f"{video_name}_log.csv")
         self._last_logged_time_by_name = {}
 
-        # === SOUND SETUP ===
+        # Inicjalizacja dźwięku alertu
         self.alert_effect = QSoundEffect()
         self.alert_effect.setSource(QUrl.fromLocalFile("sounds/alert.wav"))
         self.alert_effect.setLoopCount(1)
         self.alert_effect.setVolume(0.9)
 
     def update(self):
+        """Główna metoda aktualizująca obraz w pętli"""
         start = time.time()
         ret, frame = self.video_source.read()
         if not ret or frame is None:
@@ -76,6 +82,7 @@ class FaceApp:
         elapsed = time.time() - start
 
     def process_frame(self, frame):
+        """Przetwarza pojedynczą klatkę (flip, detekcja, rozpoznanie, rysowanie)"""
         frame = cv2.flip(frame, 1)
         now = time.time()
 
@@ -133,16 +140,15 @@ class FaceApp:
                     'reference': reference_path
                 }
 
-            # Kolory
+            # Kolory ramki i etykiety w zależności od wyniku rozpoznania
             if recognition['name'] == 'Unknown':
-                color = (0, 0, 255)
+                color = (0, 0, 255)  # czerwony
                 if self.sound_enabled:
                     self._play_unknown_sound()
-                    print("ALERTTT")
             elif recognition['name'] == 'Przetwarzanie...':
-                color = (255, 165, 0)
+                color = (255, 165, 0)  # pomarańczowy
             else:
-                color = (0, 255, 0)
+                color = (0, 255, 0)  # zielony
 
             label = f"{recognition['name']} ({recognition['score'] * 100:.1f}%)"
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
@@ -175,6 +181,7 @@ class FaceApp:
         return frame
 
     def _start_async_detection(self, frame):
+        """Asynchroniczne uruchomienie detekcji twarzy w osobnym wątku"""
         self._detection_running = True
         self._detection_thread = QThread()
         self._detection_worker = DetectionWorker(self.detector, frame.copy())
@@ -193,6 +200,7 @@ class FaceApp:
         self._detection_running = False
 
     def _match_faces_to_trackers(self, detections):
+        """Przypisuje wykryte twarze do istniejących trackerów (na podstawie odległości środka)"""
         current_boxes = [list(map(int, det[:4])) for det in detections]
         matched = {}
         used_trackers = set()
@@ -239,6 +247,7 @@ class FaceApp:
         return matched
 
     def _handle_add_face_from_frame(self, frame: np.ndarray, name: str):
+        """Obsługa dodania nowej twarzy do bazy rozpoznawania"""
         try:
             detections = self.detector.detect_faces(frame)
             if not detections.any():
@@ -264,6 +273,9 @@ class FaceApp:
             self.logger.error(f"Błąd przy dodawaniu twarzy: {str(e)}")
 
     def _prepare_face_crop(self, frame: np.ndarray) -> np.ndarray | None:
+        """
+        Zwraca wyciętą twarz z podanej klatki
+        """
         try:
             detections = self.detector.detect_faces(frame)
             if not detections.any():
@@ -280,6 +292,7 @@ class FaceApp:
             return None
 
     def save_recognition_log(self):
+        """Zapisuje log rozpoznań do pliku CSV"""
         if not self.is_video_file or not self.recognition_log or not self.output_log_path:
             return
 
@@ -295,6 +308,7 @@ class FaceApp:
 
 
     def _play_unknown_sound(self):
+        """Odtwarza dźwięk ostrzeżenia jeśli wykryto nieznaną twarz"""
         now = time.time()
         if now - self.last_alert_sound_time < self.alert_cooldown:
             return

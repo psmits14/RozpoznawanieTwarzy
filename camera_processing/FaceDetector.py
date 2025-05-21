@@ -6,13 +6,23 @@ from core.model_handler.face_detection.FaceDetModelHandler import FaceDetModelHa
 
 class FaceDetector:
     def __init__(self, logger, model_path='models'):
+        """
+        Konstruktor klasy FaceDetector.
+        Inicjalizuje logger, ścieżkę do modeli i wywołuje metodę inicjalizacji detektora.
+
+        :param logger: obiekt do logowania zdarzeń
+        :param model_path: ścieżka do katalogu z modelami detekcji twarzy
+        """
         self.logger = logger
         self.model_path = model_path
         self.face_handler = None
         self._initialize_detector()
 
     def _initialize_detector(self):
-        """Inicjalizacja modelu detekcji twarzy"""
+        """
+        Inicjalizacja modelu detekcji twarzy.
+        Wczytuje konfigurację modelu z pliku YAML, ładuje model i tworzy handler do jego użycia.
+        """
         with open('config/model_conf.yaml') as f:
             model_conf = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -31,7 +41,12 @@ class FaceDetector:
             raise
 
     def detect_faces(self, frame):
-        """Wykrywa twarze na podanej klatce"""
+        """
+        Wykonuje detekcję twarzy na przekazanej klatce obrazu.
+
+        :param frame: pojedyncza klatka obrazu
+        :return: lista wykrytych twarzy
+        """
         if self.face_handler is None:
             raise RuntimeError("Detektor twarzy nie został zainicjalizowany")
 

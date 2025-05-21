@@ -14,24 +14,25 @@ class FaceAppUI(QWidget):
         super().__init__()
         self.setWindowTitle("Aplikacja Kamery - Detekcja i Rozpoznawanie Twarzy")
         self.setMinimumSize(1000, 600)
-        self.video_fps = 0
-        self._slider_being_dragged = False
+        self.video_fps = 0                  # Liczba klatek na sekundę wideo
+        self._slider_being_dragged = False  # Flaga czy suwak jest przeciągany
 
-        self.current_frame = None
-        self.pending_face_crop = None
-        self.on_add_face_callback = None
-        self.on_prepare_face_crop_callback = None
+        self.current_frame = None           # Aktualna klatka obrazu z kamery/wideo
+        self.pending_face_crop = None       # Tymczasowe przycięcie twarzy do zatwierdzenia
+        self.on_add_face_callback = None    # Callback do dodawania twarzy
+        self.on_prepare_face_crop_callback = None   # Callback do przygotowania przycięcia twarzy
 
-        self.is_video_source = is_video_source
+        self.is_video_source = is_video_source  # Flaga czy źródłem jest wideo (a nie kamera)
 
-        self._setup_ui()
+        self._setup_ui()           # Inicjalizacja UI
 
         self._target_width = 1280  # Docelowa szerokość wideo
         self._target_height = 720  # Docelowa wysokość wideo
-        self._setup_window_geometry()
+        self._setup_window_geometry()   # Ustawienia wielkości i położenia okna
 
-        self.on_back_callback = None
+        self.on_back_callback = None    # Callback do obsługi przycisku powrotu
 
+        # Jeśli źródło to wideo, dodaj kontrolki sterujące
         if is_video_source:
             self._add_video_controls()
 
@@ -46,13 +47,12 @@ class FaceAppUI(QWidget):
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         left_column.addWidget(self.video_label, stretch=1)
 
-
         # Kontrolki wideo (będą dodawane tylko dla źródła wideo)
         self.video_controls = QHBoxLayout()
         self.video_controls.setContentsMargins(5, 0, 5, 5)
         left_column.addLayout(self.video_controls)
 
-        # Scrollowana lista rozpoznań (prawy panel - pozostaje bez zmian)
+        # Prawy panel z listą rozpoznanych twarzy (scrollowalny)
         self.recognition_panel = QVBoxLayout()
         self.recognition_panel.setAlignment(Qt.AlignmentFlag.AlignTop)
 
@@ -63,19 +63,21 @@ class FaceAppUI(QWidget):
         scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(scroll_widget)
 
+        # Przycisk powrotu do konfiguratora
         self.back_button = QPushButton("Wróć do konfiguratora")
         self.back_button.clicked.connect(self._on_back_clicked)
 
-        # Pole imienia i przycisk dodania
+        # Pole tekstowe do wpisania imienia nowej twarzy (ukryte)
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("Wpisz imię i naciśnij ENTER")
         self.name_input.returnPressed.connect(self._submit_face_name)
         self.name_input.hide()
 
+        # Przycisk dodania nowej twarzy
         self.add_button = QPushButton("Dodaj nową twarz")
         self.add_button.clicked.connect(self._on_add_clicked)
 
-        # Podgląd + akcje
+        # Podgląd twarzy do dodania wraz z przyciskami potwierdzenia i anulowania
         self.face_preview = QLabel()
         self.face_preview.setFixedSize(120, 120)
         self.face_preview.setVisible(False)
@@ -112,6 +114,7 @@ class FaceAppUI(QWidget):
 
 
     def update_frame(self, frame: np.ndarray, detected_faces: list[np.ndarray], recognitions: list[dict]):
+        """Aktualizacja wyświetlanej klatki i panelu rozpoznawania"""
         self.current_frame = frame.copy()
         # Konwersja klatki do formatu RGB
         if frame is not None:
@@ -135,7 +138,7 @@ class FaceAppUI(QWidget):
         self._update_face_comparisons(detected_faces, recognitions)
 
     def _setup_window_geometry(self):
-        # Ustawienia bazujące na rozdzielczości ekranu
+        """Ustawia wielkość i pozycję okna na podstawie dostępnego ekranu"""
         screen = QApplication.primaryScreen().availableGeometry()
         margin = 50
 
@@ -152,6 +155,7 @@ class FaceAppUI(QWidget):
                   center_point.y() - self.height() // 2)
 
     def set_video_resolution(self, width: int, height: int):
+        """Ustawia minimalny rozmiar wyświetlania obrazu i pozwala na jego rozciąganie"""
         self.video_label.setMinimumSize(width // 4, height // 4)
         self.video_label.setSizePolicy(
             QSizePolicy.Policy.Expanding,
@@ -159,6 +163,7 @@ class FaceAppUI(QWidget):
         )
 
     def update_video_controls(self, current_frame, total_frames):
+        """Aktualizuje suwak i etykietę czasu odtwarzania wideo"""
         if hasattr(self, 'video_slider') and not self._slider_being_dragged:
             self.video_slider.setMaximum(total_frames)
             self.video_slider.setValue(current_frame)
@@ -166,11 +171,14 @@ class FaceAppUI(QWidget):
         if self.video_fps > 0:
             current_time = current_frame / self.video_fps
             total_time = total_frames / self.video_fps
+            # Formatowanie czasu w minuty i sekundy
             self.time_label.setText(
                 f"{int(current_time // 60):02d}:{int(current_time % 60):02d} / "
                 f"{int(total_time // 60):02d}:{int(total_time % 60):02d}"
             )
+
     def _update_video_display(self, frame: np.ndarray):
+        """Aktualizacja wyświetlanego obrazu"""
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         qt_image = QImage(rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
@@ -178,11 +186,13 @@ class FaceAppUI(QWidget):
         self.video_label.setPixmap(pixmap)
 
     def _update_face_comparisons(self, faces, recognitions):
+        """Czyszczenie starej listy rozpoznań"""
         while self.recognition_panel.count():
             item = self.recognition_panel.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
+        # Dodawanie widżetów porównujących wykrytą twarz i wzorzec
         for i, (cam_face, rec) in enumerate(zip(faces, recognitions)):
             label = f"{i + 1}. {rec.get('name', 'Nieznany')} - {rec.get('score', 0) * 100:.1f}%"
             ref_path = rec.get("reference")
@@ -192,6 +202,7 @@ class FaceAppUI(QWidget):
 
     @staticmethod
     def _create_face_comparison_widget(cam_face: np.ndarray, ref_face: np.ndarray, label: str) -> QWidget:
+        """Pomocnicza funkcja konwertująca obraz na QPixmap o ustalonym rozmiarze"""
         def to_pixmap(img, size=60):
             if img is None:
                 blank = np.full((size, size, 3), 180, dtype=np.uint8)
@@ -204,11 +215,10 @@ class FaceAppUI(QWidget):
             rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
             return QPixmap.fromImage(QImage(rgb.data, new_w, new_h, 3 * new_w, QImage.Format.Format_RGB888))
 
-        # Obrazki
+        # Tworzenie widżetów z obrazami z kamery i wzorców oraz etykietą tekstową
         cam_pix = to_pixmap(cam_face)
         ref_pix = to_pixmap(ref_face)
 
-        # Kamera
         cam_image = QLabel()
         cam_image.setPixmap(cam_pix)
         cam_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -248,14 +258,17 @@ class FaceAppUI(QWidget):
         return container
 
     def _on_add_clicked(self):
+        """Pokaż pole tekstowe do wpisania imienia nowej twarzy i ustaw fokus"""
         self.name_input.show()
         self.name_input.setFocus()
 
     def _on_back_clicked(self):
+        """Wywołaj callback powrotu"""
         if self.on_back_callback:
             self.on_back_callback()
 
     def _submit_face_name(self):
+        """Obsługa zatwierdzenia imienia nowej twarzy (naciśnięcie ENTER)"""
         name = self.name_input.text().strip()
         if name and self.current_frame is not None:
             if self.on_prepare_face_crop_callback:
@@ -283,15 +296,18 @@ class FaceAppUI(QWidget):
         self.cancel_button.setVisible(True)
 
     def _confirm_add_face(self):
+        """Potwierdzenie dodania twarzy"""
         if self.pending_face_crop and self.on_add_face_callback:
             crop, name = self.pending_face_crop
             self.on_add_face_callback(crop, name)
         self._reset_face_preview()
 
     def _cancel_add_face(self):
+        """Anulowanie dodawania twarzy i reset UI"""
         self._reset_face_preview()
 
     def _reset_face_preview(self):
+        """Ukrywa elementy UI związane z dodawaniem twarzy i czyści dane"""
         self.face_preview.clear()
         self.face_preview.setVisible(False)
         self.confirm_button.setVisible(False)
@@ -335,4 +351,5 @@ class FaceAppUI(QWidget):
         """)
 
     def set_video_fps(self, fps: float):
+        """Ustawienie liczby klatek na sekundę dla obrazu"""
         self.video_fps = fps

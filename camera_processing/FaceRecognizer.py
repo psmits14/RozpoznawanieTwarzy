@@ -14,10 +14,14 @@ from core.model_handler.face_detection.FaceDetModelHandler import FaceDetModelHa
 from core.model_loader.face_alignment.FaceAlignModelLoader import FaceAlignModelLoader
 from core.model_handler.face_alignment.FaceAlignModelHandler import FaceAlignModelHandler
 
-THRESHOLD = 0.0
+THRESHOLD = 0.5     # Próg podobieństwa do rozpoznawania twarzy
 
 class FaceRecognizer:
     def __init__(self, logger: logging.Logger, model_path: str = 'models', known_faces_dir: str = 'my_faces', face_detector_handler=None):
+        """
+        Konstruktor klasy do rozpoznawania twarzy.
+        Inicjalizuje ścieżki, modele, loggera oraz ładuje znane twarze.
+        """
         self.logger = logger
         self.model_path = model_path
         self.known_faces_dir = known_faces_dir
@@ -31,12 +35,16 @@ class FaceRecognizer:
         self._load_known_faces()
 
     def _initialize_models(self) -> None:
+        """
+        Inicjalizacja modeli do rozpoznawania i wyrównywania twarzy na podstawie konfiguracji YAML.
+        """
         try:
             with open('config/model_conf.yaml') as f:
                 model_conf = yaml.load(f, Loader=yaml.FullLoader)
 
             scene = 'non-mask'
 
+            # Załaduj model rozpoznawania twarzy
             rec_category = 'face_recognition'
             rec_name = model_conf[scene][rec_category]
             self.logger.info('Loading face recognition model...')
@@ -45,6 +53,7 @@ class FaceRecognizer:
             self.recognition_handler = FaceRecModelHandler(rec_model, 'cpu', rec_cfg)
             self.logger.info('Face recognition model loaded successfully!')
 
+            # Załaduj model do wyrównywania twarzy (landmarki)
             align_category = 'face_alignment'
             align_name = model_conf[scene][align_category]
             self.logger.info('Loading face alignment model...')
@@ -58,9 +67,13 @@ class FaceRecognizer:
             raise
 
     def initialize_face_detector(self, face_detector_handler):
+        """Zewnętrzna inicjalizacja handlera detekcji twarzy"""
         self.face_detector_handler = face_detector_handler
 
     def _load_known_faces(self) -> None:
+        """
+        Ładuje znane twarze z katalogu i generuje dla nich embeddingi.
+        """
         if not os.path.exists(self.known_faces_dir):
             self.logger.warning(f"Known faces directory {self.known_faces_dir} does not exist!")
             return
@@ -84,6 +97,7 @@ class FaceRecognizer:
         self.logger.info(f"Loaded {total_embeddings} face embeddings for {len(self.known_faces)} known persons")
 
     def _generate_embedding_from_image(self, image_path: str) -> Optional[np.ndarray]:
+        """Wczytuje obraz z dysku i generuje embedding"""
         try:
             img = cv2.imread(image_path)
             if img is None:
@@ -94,42 +108,57 @@ class FaceRecognizer:
             return None
 
     def generate_embedding(self, face_image: np.ndarray, return_landmarks=False) -> Optional[tuple]:
+        """
+         Generuje embedding twarzy z podanego obrazu.
+        """
         if self.recognition_handler is None:
             raise RuntimeError("Face recognition model not initialized")
         if self.face_detector_handler is None or self.face_aligner is None:
             raise RuntimeError("Face detector or face aligner not initialized")
 
         try:
+            # Detekcja twarzy
             detections = self.face_detector_handler.inference_on_image(face_image)
             if detections is None or len(detections) == 0:
                 self.logger.warning("No face detected in image")
                 return None
 
+            # Weź pierwszą wykrytą twarz
             detection = detections[0]
             x1, y1, x2, y2, _ = list(map(int, detection[:5]))
             bbox = [x1, y1, x2, y2]
 
+            # Wyrównanie twarzy (landmarki)
             landmarks = self.face_aligner.inference_on_image(face_image, bbox)
             if landmarks is None or len(landmarks) == 0:
                 self.logger.warning("No landmarks detected for face")
                 return None
 
+            # Przygotowanie listy landmarków
             landmarks_list = []
             for (x, y) in landmarks.astype(np.int32):
                 landmarks_list.extend((x, y))
 
+            # Kadrowanie twarzy na podstawie landmarków
             cropped_face = self.face_cropper.crop_image_by_mat(face_image, landmarks_list)
+
+            # Generowanie embeddingu
             embedding = self.recognition_handler.inference_on_image(cropped_face)
 
             if return_landmarks:
                 return embedding, landmarks
             else:
                 return embedding
+
         except Exception as e:
             self.logger.error(f"Error generating face embedding: {str(e)}")
             return None
 
     def recognize_face(self, face_image: np.ndarray, threshold: float = THRESHOLD) -> Tuple[str, float, Optional[str]]:
+        """
+        Rozpoznaje twarz na podstawie znanych embeddingów.
+        Zwraca nazwę osoby, wynik podobieństwa i ścieżkę do referencyjnego obrazu.
+        """
         if not self.known_faces:
             self.logger.warning("No known faces loaded for recognition")
             return "Unknown", 0.0, None
@@ -151,6 +180,7 @@ class FaceRecognizer:
             best_score = 0.0
             best_reference_image = None
 
+            # Porównanie embeddingu z bazą znanych osób
             for person_name, embeddings in self.known_faces.items():
                 for emb, img_path in embeddings:
                     similarity = self._cosine_similarity(new_embedding, emb)
@@ -159,7 +189,7 @@ class FaceRecognizer:
                         best_match = person_name
                         best_reference_image = img_path
 
-            if best_score < 0.5:
+            if best_score < THRESHOLD:    # Próg rozpoznania
                 best_match = "Unknown"
                 best_reference_image = None
 
@@ -176,6 +206,9 @@ class FaceRecognizer:
             return "Unknown", 0.0, None
 
     def add_new_face(self, face_image: np.ndarray, person_name: str) -> bool:
+        """
+        Dodaje nową twarz do znanych osób i zapisuje embedding oraz zdjęcie.
+        """
         try:
             person_dir = os.path.join(self.known_faces_dir, person_name)
             os.makedirs(person_dir, exist_ok=True)
@@ -201,14 +234,16 @@ class FaceRecognizer:
 
     @staticmethod
     def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+        """ Oblicza podobieństwo cosinusowe między dwoma wektorami."""
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
     def _has_glasses(self, img: np.ndarray, landmarks: np.ndarray) -> bool:
+        """ Próbuje wykryć okulary na podstawie zmienności jasności w obszarze oczu."""
         if landmarks.ndim == 1:
             landmarks = landmarks.reshape((-1, 2)).astype(np.int32)
 
-        left_eye = landmarks[36:42]
-        right_eye = landmarks[42:48]
+        left_eye = landmarks[66:74]
+        right_eye = landmarks[75:83]
 
         def region_stats(points):
             if len(points) == 0:
@@ -228,7 +263,8 @@ class FaceRecognizer:
 
         self.logger.debug(f"[GLASSES-CHECK] std: {mean_std:.2f}, mean: {mean_mean:.2f}")
 
-        if mean_std > 50:
+        # Jeśli odchylenie standardowe jest wysokie – możliwe, że są okulary
+        if mean_std > 30:
             self.logger.debug("[GLASSES-CHECK] ✅ WYKRYTO OKULARY")
             return True
         else:
