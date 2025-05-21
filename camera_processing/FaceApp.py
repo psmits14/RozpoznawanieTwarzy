@@ -15,18 +15,18 @@ from camera_processing.DetectionWorker import DetectionWorker
 class FaceApp:
     def __init__(self, logger, ui, video_source, recognition_threshold=0.5,  sound_enabled=False):
         self.logger = logger
-        self.ui = ui
-        self.ui.on_add_face_callback = self._handle_add_face_from_frame
-        self.ui.on_prepare_face_crop_callback = self._prepare_face_crop
+        self.ui = ui                                                        # Interfejs użytkownika
+        self.ui.on_add_face_callback = self._handle_add_face_from_frame     # Callback do dodawania twarzy
+        self.ui.on_prepare_face_crop_callback = self._prepare_face_crop     # Callback do przygotowania podglądu twarzy
 
-        self.sound_enabled = sound_enabled
-        self.last_alert_sound_time = 0
-        self.alert_cooldown = 2  # Minimalny czas (s) między alertami dźwiękowymi
+        self.sound_enabled = sound_enabled      # Czy umożliwiono alerty dżwiękowe
+        self.last_alert_sound_time = 0          # Czas ostatniego odtworzenia alertu
+        self.alert_cooldown = 2                 # Minimalny czas (s) między alertami dźwiękowymi
 
-        self.video_source = video_source
-        self.recognition_threshold = recognition_threshold
+        self.video_source = video_source                                # Źródło obrazu wideo
+        self.recognition_threshold = recognition_threshold              # Próg pewności rozpoznania twarzy
         frame_width, frame_height = self.video_source.get_frame_size()
-        self.ui.set_video_resolution(frame_width, frame_height)
+        self.ui.set_video_resolution(frame_width, frame_height)         # Ustawienie rozmiaru obrazu w UI
 
         # Inicjalizacja detektora i rozpoznawania twarzy
         self.detector = FaceDetector(logger)
@@ -34,29 +34,29 @@ class FaceApp:
         self.recognizer.initialize_face_detector(self.detector.face_handler)
 
         # Dane wykrytych twarzy i rozpoznań
-        self.detected_faces = []
-        self.recognitions = []
+        self.detected_faces = []            # Lista aktualnie wykrytych twarzy
+        self.recognitions = []              # Lista wyników rozpoznania twarzy
 
         # Parametry rozpoznawania twarzy
-        self.last_recognition_time = 0
+        self.last_recognition_time = 0      # Czas ostatniego rozpoznania
         self.recognition_interval = 2       # Odstęp czasowy między rozpoznaniami
-        self.next_face_id = 0
-        self.face_trackers = OrderedDict()
-        self.max_trackers = 10
-        self.recognition_memory_time = 5
-        self.face_reappear_threshold = 1
+        self.next_face_id = 0               # Id kolejnej twarzy
+        self.face_trackers = OrderedDict()  # Słownik śledzonych twarzy: ID -> dane
+        self.max_trackers = 10              # Maksymalna liczba aktywnych śledzonych twarzy
+        self.recognition_memory_time = 5    # Czas (s), po którym nieaktywna twarz jest usuwana
+        self.face_reappear_threshold = 1    # Próg (s) pojawiania się twarzy
 
         # Parametry przetwarzania detekcji
-        self._processing_interval = 0.2
-        self._last_processed = 0
-        self._last_detections = []
-        self._detection_running = False
-        self._detection_thread = None
+        self._processing_interval = 0.2     # Odstęp między kolejnymi detekcjami (s)
+        self._last_processed = 0            # Czas ostatniej detekcji
+        self._last_detections = []          # Ostatnio wykryte twarze
+        self._detection_running = False     # Czy detekcja jest w toku
+        self._detection_thread = None       # Wątek, w którym działa detekcja
 
         # Jeśli źródłem jest plik wideo – ustaw flagę i nazwę pliku do logowania
         self.is_video_file = hasattr(video_source, 'get_current_frame_position')
-        self.recognition_log = []
-        self.output_log_path = None  # zostanie ustawiona później
+        self.recognition_log = []           # Log wyników rozpoznania (dla CSV)
+        self.output_log_path = None         # Ścieżka do pliku logu wyników rozpoznania
         # jeśli to plik wideo, ustaw ścieżkę zapisu logu
         if self.is_video_file and hasattr(video_source, 'file_path'):
             video_name = os.path.splitext(os.path.basename(video_source.file_path))[0]
@@ -66,9 +66,9 @@ class FaceApp:
 
         # Inicjalizacja dźwięku alertu
         self.alert_effect = QSoundEffect()
-        self.alert_effect.setSource(QUrl.fromLocalFile("sounds/alert.wav"))
-        self.alert_effect.setLoopCount(1)
-        self.alert_effect.setVolume(0.9)
+        self.alert_effect.setSource(QUrl.fromLocalFile("sounds/alert.wav")) # Ścieżka do pliku dźwiękowego
+        self.alert_effect.setLoopCount(1)                                   # Odtwarzanie tylko raz
+        self.alert_effect.setVolume(0.9)                                    # Głośność
 
     def update(self):
         """Główna metoda aktualizująca obraz w pętli"""
