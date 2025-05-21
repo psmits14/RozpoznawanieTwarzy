@@ -71,49 +71,70 @@ class FaceApp:
         self.alert_effect.setVolume(0.9)                                    # Głośność
 
     def update(self):
-        """Główna metoda aktualizująca obraz w pętli"""
-        start = time.time()
+        """
+        Główna metoda aktualizująca obraz w pętli głównej aplikacji.
+        - Pobiera nową klatkę z kamery lub pliku wideo,
+        - Przetwarza ją (detekcja twarzy, rozpoznawanie itp.),
+        - Aktualizuje interfejs graficzny.
+        """
         ret, frame = self.video_source.read()
+
         if not ret or frame is None:
             return
 
         frame = self.process_frame(frame)
         self.ui.update_frame(frame, self.detected_faces, self.recognitions)
-        elapsed = time.time() - start
 
     def process_frame(self, frame):
-        """Przetwarza pojedynczą klatkę (flip, detekcja, rozpoznanie, rysowanie)"""
+        """
+        Przetwarza pojedynczą klatkę obrazu:
+        - odbicie lustrzane,
+        - detekcja twarzy (asynchroniczna),
+        - przypisanie wykryć do śledzonych twarzy,
+        - rozpoznanie twarzy,
+        - rysowanie ramek i etykiet,
+        - logowanie wyników (dla nagrania).
+        """
+        # Odbicie lustrzane obrazu – lepsze UX dla kamery (jak w lustrze)
         frame = cv2.flip(frame, 1)
         now = time.time()
 
+        # Uruchamiamy detekcję co określony interwał czasu (aby nie przeciążać systemu)
         if now - self._last_processed >= self._processing_interval and not self._detection_running:
             self._start_async_detection(frame)
             self._last_processed = now
 
+        # Pobieramy ostatnie wykryte twarze (asynchronicznie zaktualizowane)
         detections = self._last_detections
-        self.detected_faces = []
+        self.detected_faces = []  # Reset listy aktualnie widocznych twarzy
         current_time = now
 
+        # Dopasowanie detekcji do istniejących trackerów (śledzenie twarzy)
         matched_faces = self._match_faces_to_trackers(detections)
-        new_face_trackers = OrderedDict()
-        self.recognitions = []
+        new_face_trackers = OrderedDict()  # Trackery do aktualizacji
+        self.recognitions = []  # Lista rozpoznań w bieżącej klatce
 
         for face_id, det_idx in matched_faces.items():
+            # Wyciągamy współrzędne wykrytej twarzy
             box = list(map(int, detections[det_idx][:4]))
             x1, y1, x2, y2 = box
             h, w = frame.shape[:2]
             x1, y1 = max(0, x1), max(0, y1)
             x2, y2 = min(w - 1, x2), min(h - 1, y2)
 
+            # Pomijamy nieprawidłowe detekcje
             if x2 <= x1 or y2 <= y1:
                 continue
 
+            # Wycinamy twarz z obrazu
             face_img = frame[y1:y2, x1:x2]
             self.detected_faces.append(face_img)
 
+            # Sprawdzamy, czy to nowa twarz
             is_new = face_id not in self.face_trackers
             time_since_last = time.time() - self.face_trackers[face_id]['last_seen'] if not is_new else float('inf')
 
+            # Czy konieczne jest ponowne rozpoznanie twarzy?
             if (is_new or time_since_last > self.face_reappear_threshold or
                     (not is_new and self.face_trackers[face_id]['recognition']['name'] in ['Nieznany',
                                                                                            'Przetwarzanie...'])):
@@ -123,10 +144,12 @@ class FaceApp:
                 recognition = self.face_trackers[face_id]['recognition']
                 needs_recognition = False
 
+            # Jeśli minął interwał rozpoznawania lub twarz jest nowa - rozpoznaj
             if needs_recognition or current_time - self.last_recognition_time > self.recognition_interval:
                 name, score, reference_path = self.recognizer.recognize_face(face_img)
                 self.last_recognition_time = current_time
 
+                # Sprawdzenie progu dopasowania
                 if score >= self.recognition_threshold:
                     label_name = name
                 else:
@@ -134,13 +157,14 @@ class FaceApp:
                     reference_path = None
                     score = 0.0
 
+                # Zapisz dane rozpoznania
                 recognition = {
                     'name': label_name,
                     'score': score,
                     'reference': reference_path
                 }
 
-            # Kolory ramki i etykiety w zależności od wyniku rozpoznania
+            # Ustaw kolor ramki w zależności od statusu rozpoznania
             if recognition['name'] == 'Unknown':
                 color = (0, 0, 255)  # czerwony
                 if self.sound_enabled:
@@ -150,19 +174,24 @@ class FaceApp:
             else:
                 color = (0, 255, 0)  # zielony
 
+            # Napis z nazwą i procentową wartością dopasowania
             label = f"{recognition['name']} ({recognition['score'] * 100:.1f}%)"
+
+            # Rysowanie ramki i etykiety na obrazie
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
+            # Zapisanie/odświeżenie trackera dla twarzy
             new_face_trackers[face_id] = {
                 'last_box': box,
                 'recognition': recognition,
                 'last_seen': current_time
             }
 
+            # Dodanie do listy rozpoznań
             self.recognitions.append(recognition)
 
-            # Zapisz do logu dokładnie to, co wyświetlasz
+            # Logowanie rozpoznania (jeśli analizujemy plik wideo)
             if self.is_video_file and recognition['name'] != 'Przetwarzanie...':
                 current_frame = self.video_source.get_current_frame_position()
                 fps = self.video_source._fps
@@ -174,25 +203,43 @@ class FaceApp:
                     "score": round(recognition['score'] * 100, 1)
                 })
 
+        # Ograniczamy liczbę trackerów (FIFO) – usuwamy najstarsze, jeśli za dużo
         while len(new_face_trackers) > self.max_trackers:
             new_face_trackers.popitem(last=False)
 
+        # Aktualizacja stanu trackerów
         self.face_trackers = new_face_trackers
+
+        # Zwracamy zmodyfikowaną klatkę (z narysowanymi ramkami)
         return frame
 
     def _start_async_detection(self, frame):
-        """Asynchroniczne uruchomienie detekcji twarzy w osobnym wątku"""
+        """
+        Asynchroniczne uruchomienie detekcji twarzy w osobnym wątku (QThread).
+        Dzięki temu główny wątek GUI pozostaje responsywny (nie zawiesza się).
+        """
+        # Ustawiamy flagę informującą, że detekcja jest w toku
         self._detection_running = True
+
+        # Tworzymy nowy wątek Qt
         self._detection_thread = QThread()
+
+        # Tworzymy instancję pracownika detekcji (DetectionWorker), przekazując mu detektor i kopię klatki do analizy
         self._detection_worker = DetectionWorker(self.detector, frame.copy())
+
+        # Przenosimy obiekt detekcji do nowego wątku – będzie tam działać
         self._detection_worker.moveToThread(self._detection_thread)
 
+        # Łączymy sygnały: Kiedy wątek się uruchomi odpal metodę `run` w DetectionWorker
         self._detection_thread.started.connect(self._detection_worker.run)
-        self._detection_worker.finished.connect(self._on_detection_finished)
-        self._detection_worker.finished.connect(self._detection_thread.quit)
-        self._detection_worker.finished.connect(self._detection_worker.deleteLater)
-        self._detection_thread.finished.connect(self._detection_thread.deleteLater)
 
+        # Po zakończeniu detekcji (sygnał `finished`):
+        self._detection_worker.finished.connect(self._on_detection_finished)  # obsługa wyników
+        self._detection_worker.finished.connect(self._detection_thread.quit)  # zakończenie wątku
+        self._detection_worker.finished.connect(self._detection_worker.deleteLater)  # zwolnienie pamięci
+        self._detection_thread.finished.connect(self._detection_thread.deleteLater)  # zwolnienie zasobów wątku
+
+        # Startujemy wątek detekcji
         self._detection_thread.start()
 
     def _on_detection_finished(self, detections):
@@ -200,51 +247,65 @@ class FaceApp:
         self._detection_running = False
 
     def _match_faces_to_trackers(self, detections):
-        """Przypisuje wykryte twarze do istniejących trackerów (na podstawie odległości środka)"""
+        """
+        Przypisuje nowe detekcje twarzy do istniejących trackerów (śledzonych twarzy),
+        na podstawie odległości między środkami prostokątów (bounding boxów).
+        Pozwala śledzić te same twarze przez wiele klatek.
+        """
+
+        # Wyciągamy prostokąty detekcji i zamieniamy na listy intów
         current_boxes = [list(map(int, det[:4])) for det in detections]
-        matched = {}
-        used_trackers = set()
+        matched = {}  # Przypisanie: face_id - index detekcji
+        used_trackers = set()  # Trackery, które już zostały przypisane
 
         for i, box in enumerate(current_boxes):
             x1, y1, x2, y2 = box
-            center = ((x1 + x2) // 2, (y1 + y2) // 2)
+            center = ((x1 + x2) // 2, (y1 + y2) // 2)  # Środek aktualnej detekcji
 
             best_match = None
             best_dist = float('inf')
 
+            # Przeszukiwanie istniejących trackerów w celu znalezienia najlepszego dopasowania
             for face_id, tracker in self.face_trackers.items():
                 if face_id in used_trackers:
-                    continue
+                    continue  # Dany tracker już został przypisany
 
                 last_box = tracker['last_box']
                 last_center = ((last_box[0] + last_box[2]) // 2, (last_box[1] + last_box[3]) // 2)
-                dist = np.linalg.norm(np.array(center) - np.array(last_center))
+                dist = np.linalg.norm(np.array(center) - np.array(last_center))  # Odległość euklidesowa
 
+                # Maksymalna dopuszczalna odległość zależna od czasu "zniknięcia" twarzy
                 time_since_last = time.time() - tracker['last_seen']
                 max_dist = 100 if time_since_last < self.face_reappear_threshold else 50
 
+                # Wybieramy najbliższą pasującą twarz
                 if dist < max_dist and dist < best_dist:
                     best_match = face_id
                     best_dist = dist
 
             if best_match is not None:
+                # Zapisz przypisanie detekcji do istniejącego trackera
                 matched[best_match] = i
                 used_trackers.add(best_match)
             else:
+                # Nowa twarz – przypisujemy jej nowe ID
                 new_id = self.next_face_id
                 while new_id in self.face_trackers:
                     new_id += 1
                 self.next_face_id = new_id + 1
                 matched[new_id] = i
 
+        # Usuwanie nieaktywowanych trackerów, które wygasły (nie były widziane przez dłuższy czas)
         current_time = time.time()
-        to_delete = [face_id for face_id, tracker in self.face_trackers.items()
-                     if current_time - tracker['last_seen'] > self.recognition_memory_time]
+        to_delete = [
+            face_id for face_id, tracker in self.face_trackers.items()
+            if current_time - tracker['last_seen'] > self.recognition_memory_time
+        ]
 
         for face_id in to_delete:
             del self.face_trackers[face_id]
 
-        return matched
+        return matched  # Zwracamy mapowanie: face_id - indeks detekcji
 
     def _handle_add_face_from_frame(self, frame: np.ndarray, name: str):
         """Obsługa dodania nowej twarzy do bazy rozpoznawania"""
