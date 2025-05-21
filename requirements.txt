@@ -1,11 +1,10 @@
-torch>=1.1.0
-torchvision>=0.3.0
 pyyaml~=6.0.2
 scikit-image~=0.25.2
 Pillow~=11.1.0
 matplotlib~=3.10.1
-opencv-python~=4.11.0.86
+opencv-python-headless~=4.11.0.86
 numpy~=1.26.4
 scipy
-PyQt6~=6.6.1
-PyQt6-sip~=13.6.0
+PyQt6==6.6.1
+PyQt6-sip==13.6.0
+PyQt6-Qt6==6.6.2

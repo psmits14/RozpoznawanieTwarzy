@@ -293,7 +293,6 @@ class FaceApp:
         except Exception as e:
             self.logger.error(f"Błąd zapisu logu rozpoznań: {str(e)}")
 
-    import simpleaudio as sa
 
     def _play_unknown_sound(self):
         now = time.time()
